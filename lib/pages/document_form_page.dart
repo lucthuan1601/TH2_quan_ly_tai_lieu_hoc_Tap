@@ -1,18 +1,29 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
 import '../models/document_struct.dart';
 import '../repositories/document_repository.dart';
+import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 class DocumentFormPage extends StatefulWidget {
   const DocumentFormPage({
     super.key,
     required this.repository,
+    this.authService,
+    this.storageService,
+    this.user,
     this.document,
   });
 
   final DocumentRepository repository;
+  final AuthService? authService;
+  final StorageService? storageService;
+  final AuthUser? user;
   final Document? document;
 
   @override
@@ -26,6 +37,9 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
   DocumentType _type = DocumentType.lecture;
   String? _filePath;
   String? _fileName;
+  Uint8List? _fileBytes;
+  String? _contentType;
+  bool _hasNewFile = false;
   bool _isSaving = false;
 
   bool get _isEditing => widget.document != null;
@@ -54,21 +68,57 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSaving = true);
     try {
+      final documentId = widget.document?.id ?? const Uuid().v4();
+      var storagePath = _filePath;
+      if (_hasNewFile &&
+          widget.user != null &&
+          widget.storageService != null &&
+          _fileBytes == null) {
+        throw StateError('Không đọc được nội dung tệp để tải lên Firebase.');
+      }
+      if (_hasNewFile &&
+          _fileBytes != null &&
+          widget.user != null &&
+          widget.storageService != null) {
+        storagePath = await widget.storageService!.uploadDocument(
+          userId: widget.user!.id,
+          documentId: documentId,
+          bytes: _fileBytes!,
+          fileName: _fileName!,
+          contentType: _contentType,
+        );
+      }
       await widget.repository.save(
-        id: widget.document?.id,
+        id: documentId,
         title: _title.text,
         description: _description.text,
         type: _type,
-        filePath: _filePath,
+        filePath: storagePath,
+        ownerId: widget.user?.id,
+        fileName: _fileName,
+        mimeType: _contentType,
+        sizeBytes: _fileBytes?.length,
       );
       if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể lưu tài liệu: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.platform.pickFiles(
+      withData: true,
+      withReadStream: true,
+    );
     if (result == null || result.files.isEmpty || !mounted) return;
 
     final file = result.files.single;
@@ -82,9 +132,16 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
       );
       return;
     }
-    if (file.path == null) {
+    final bytes = file.bytes ??
+        (file.readStream == null
+            ? null
+            : Uint8List.fromList(
+                (await file.readStream!.expand((chunk) => chunk).toList()),
+              ));
+    if (!mounted) return;
+    if (bytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể truy cập đường dẫn của tệp.')),
+        const SnackBar(content: Text('Không thể đọc nội dung tệp đã chọn.')),
       );
       return;
     }
@@ -92,6 +149,9 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
     setState(() {
       _filePath = file.path;
       _fileName = file.name;
+      _fileBytes = bytes;
+      _contentType = null;
+      _hasNewFile = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Đã chọn tệp: ${file.name}')),

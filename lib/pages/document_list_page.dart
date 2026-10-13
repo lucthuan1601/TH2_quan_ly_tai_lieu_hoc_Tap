@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../database/database.dart';
 import '../models/document_struct.dart';
 import '../repositories/document_repository.dart';
 import 'document_form_page.dart';
+import '../services/auth_service.dart';
+import '../services/storage_service.dart';
 
 class DocumentListPage extends StatefulWidget {
-  const DocumentListPage({super.key, required this.repository});
+  const DocumentListPage({
+    super.key,
+    required this.repository,
+    this.authService,
+    this.user,
+  });
 
   final DocumentRepository repository;
+  final AuthService? authService;
+  final AuthUser? user;
 
   @override
   State<DocumentListPage> createState() => _DocumentListPageState();
@@ -16,6 +27,186 @@ class DocumentListPage extends StatefulWidget {
 class _DocumentListPageState extends State<DocumentListPage> {
   final _searchController = TextEditingController();
   DocumentType? _type;
+  bool _isBusy = false;
+
+  Future<void> _deleteDocument(Document document) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa tài liệu'),
+        content: Text('Bạn có chắc muốn xóa "${document.title}" không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true) return;
+
+    setState(() => _isBusy = true);
+    try {
+      await widget.repository.delete(document.id);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể xóa tài liệu: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  Future<void> _openDocument(Document document) async {
+    final storagePath = document.filePath;
+    // Supabase Storage paths are returned as "<ownerId>/<documentId>/<file>".
+    // They do not use the old Firebase "users/" prefix.
+    if (storagePath == null ||
+        storagePath.trim().isEmpty ||
+        storagePath.contains(r'\') ||
+        RegExp(r'^[A-Za-z]:').hasMatch(storagePath)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tài liệu này chưa có tệp trên cloud.')),
+      );
+      return;
+    }
+
+    try {
+      final url = await StorageService().createSignedDownloadUrl(document.id);
+      final opened = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        throw StateError('Không thể mở liên kết tài liệu.');
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể mở tài liệu: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareDocument(Document document) async {
+    final emailController = TextEditingController();
+    var permission = 'viewer';
+    try {
+      final result = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Chia sẻ tài liệu'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email người nhận',
+                    hintText: 'nguoi-dung@example.com',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: permission,
+                  decoration: const InputDecoration(labelText: 'Quyền'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'viewer',
+                      child: Text('Chỉ xem'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'editor',
+                      child: Text('Được chỉnh sửa'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setDialogState(() => permission = value);
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, {
+                  'email': emailController.text.trim(),
+                  'permission': permission,
+                }),
+                child: const Text('Chia sẻ'),
+              ),
+            ],
+          ),
+        ),
+      );
+      final email = result?['email']?.trim();
+      final selectedPermission = result?['permission'];
+      if (email == null || email.isEmpty || selectedPermission == null) {
+        return;
+      }
+      final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+      if (!emailPattern.hasMatch(email)) {
+        throw const FormatException('Email người nhận không hợp lệ.');
+      }
+
+      await widget.repository.shareByEmail(
+        documentId: document.id,
+        email: email,
+        permission: selectedPermission,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đã cập nhật quyền chia sẻ.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể chia sẻ tài liệu: $error')),
+        );
+      }
+    } finally {
+      emailController.dispose();
+    }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content:
+            const Text('Bạn có chắc muốn đăng xuất khỏi tài khoản này không?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut == true && widget.authService != null) {
+      await widget.authService!.signOut();
+    }
+  }
 
   @override
   void dispose() {
@@ -26,7 +217,32 @@ class _DocumentListPageState extends State<DocumentListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tài liệu học tập')),
+      appBar: AppBar(
+        title: const Text('Tài liệu học tập'),
+        actions: widget.authService == null
+            ? null
+            : [
+                if (widget.user?.email != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 210),
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          widget.user!.email!,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Đăng xuất',
+                  icon: const Icon(Icons.logout),
+                  onPressed: _confirmSignOut,
+                ),
+              ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -82,6 +298,11 @@ class _DocumentListPageState extends State<DocumentListPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
+                            tooltip: 'Mở tài liệu',
+                            icon: const Icon(Icons.open_in_new),
+                            onPressed: () => _openDocument(document),
+                          ),
+                          IconButton(
                             tooltip: 'Sửa tài liệu',
                             icon: const Icon(Icons.edit_outlined),
                             color: Colors.green,
@@ -89,6 +310,9 @@ class _DocumentListPageState extends State<DocumentListPage> {
                               MaterialPageRoute(
                                 builder: (_) => DocumentFormPage(
                                   repository: widget.repository,
+                                  authService: widget.authService,
+                                  storageService: StorageService(),
+                                  user: widget.user,
                                   document: document,
                                 ),
                               ),
@@ -98,8 +322,15 @@ class _DocumentListPageState extends State<DocumentListPage> {
                             tooltip: 'Xóa tài liệu',
                             icon: const Icon(Icons.delete_outline),
                             color: Colors.red,
-                            onPressed: () =>
-                                widget.repository.delete(document.id),
+                            onPressed: _isBusy
+                                ? null
+                                : () => _deleteDocument(document),
+                          ),
+                          IconButton(
+                            tooltip: 'Chia sẻ tài liệu',
+                            icon: const Icon(Icons.share_outlined),
+                            onPressed:
+                                _isBusy ? null : () => _shareDocument(document),
                           ),
                         ],
                       ),
@@ -113,7 +344,12 @@ class _DocumentListPageState extends State<DocumentListPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => DocumentFormPage(repository: widget.repository),
+          builder: (_) => DocumentFormPage(
+            repository: widget.repository,
+            authService: widget.authService,
+            storageService: StorageService(),
+            user: widget.user,
+          ),
         )),
         child: const Icon(Icons.add),
       ),

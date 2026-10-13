@@ -20,5 +20,10 @@ void main() {
 
     expect(find.text('Tài liệu học tập'), findsOneWidget);
     expect(find.text('Chưa có tài liệu'), findsOneWidget);
+
+    // Allow Drift's query stream to finish its asynchronous cancellation
+    // before the test database is closed.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 }

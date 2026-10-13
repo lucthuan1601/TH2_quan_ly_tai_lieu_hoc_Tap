@@ -1,283 +1,262 @@
-# Phân tích và phương án tích hợp Cloud cho hệ thống quản lý tài liệu
+# Phát triển Hệ thống Quản lý Tài liệu Đa nền tảng với Flutter, Firebase và Supabase
 
-## 1. Mục tiêu
+## 1. Mục tiêu và phạm vi
 
-Ứng dụng quản lý tài liệu học tập được xây dựng bằng Flutter, cho phép người dùng đăng nhập bằng Google, thêm/sửa/xóa tài liệu, tìm kiếm và lọc tài liệu. Dữ liệu tài liệu được lưu cục bộ để ứng dụng có thể hoạt động nhanh trên thiết bị, đồng thời được đồng bộ lên Firebase để người dùng truy cập từ xa.
+Ứng dụng được xây dựng bằng Flutter nhằm quản lý tài liệu học tập trên nhiều thiết
+bị. Người dùng đăng nhập bằng tài khoản Google thông qua Firebase Authentication,
+còn dữ liệu quan hệ, quyền truy cập và tệp vật lý được quản lý trên Supabase.
 
-Phương án Cloud hướng tới ba mục tiêu:
+Trọng tâm của bài tập gồm:
 
-- Lưu trữ dữ liệu an toàn, phân tách theo từng tài khoản.
-- Cho phép truy cập dữ liệu từ nhiều thiết bị có Internet.
-- Giảm phụ thuộc vào một thiết bị hoặc máy chủ vật lý duy nhất.
+- Xác thực người dùng an toàn bằng Google/Firebase.
+- Lưu trữ tài liệu và metadata trên Cloud.
+- Phân quyền chủ sở hữu, người chỉnh sửa và người chỉ xem.
+- Chia sẻ tài liệu bằng email nhưng chỉ chấp nhận tài khoản đã đăng nhập ứng dụng.
+- Kiểm thử tính toàn vẹn dữ liệu trên nhiều tài khoản.
 
-## 2. Phân công nhiệm vụ
+> **Lưu ý về lựa chọn dịch vụ:** Firebase được dùng cho Authentication. Tệp được
+> lưu trong Supabase Storage thay vì Firebase Storage để phù hợp với gói miễn phí
+> đang sử dụng. Supabase PostgreSQL lưu metadata và quyền chia sẻ.
 
-| Thành viên | Checklist phụ trách | Nội dung bàn giao                                                                                                                                                                                                                |
-|---|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Lục Văn Thuận** | **06,07**           | Tích hợp Firebase vào Flutter; đăng nhập Google bằng Firebase Authentication; lưu và đồng bộ dữ liệu bằng Cloud Firestore; hướng dẫn setup theo [Firebase Flutter Setup](https://firebase.google.com/docs/flutter/setup?hl=vi),tổng hợp nội dung thành slide tìm hiểu Firebase và cách setup tài khoản nhóm.. |
-| **Hoàng Tùng** | **01**              | Liệt kê và phân tích các thành phần cốt lõi: Frontend, Backend/Service, Database và File Storage.                                                                                                                                |
-| **Trần Văn Hồng Quân** | **02, 03**          | Phân tích hạn chế của hạ tầng truyền thống; so sánh Public, Private và Hybrid Cloud; đề xuất mô hình cùng dịch vụ Cloud phù hợp.                                                                                                 |
-| **Nguyễn Khắc Minh Hiếu** | **04, 05**          | Thiết kế kiến trúc và luồng dữ liệu; đánh giá bảo mật, chi phí, hiệu suất;                                                                                                                                                       |
+## 2. Checklist triển khai
 
-> Checklist đề bài đánh số đến mục 07, trong đó mục 07 là phần slide. Mục 06 được giao riêng cho Lục Văn Thuận theo yêu cầu.
+| STT | Hạng mục | Trạng thái |
+|---:|---|---|
+| 1 | Thiết lập Firebase và đăng nhập Google trong ứng dụng Flutter | Hoàn thành |
+| 2 | Upload tệp vật lý lên Supabase Storage và liên kết với metadata tài liệu | Hoàn thành |
+| 3 | Thiết kế các bảng Người dùng, Tài liệu và Quyền chia sẻ trên Supabase | Hoàn thành |
+| 4 | Tìm kiếm, cập nhật và chia sẻ tài liệu bằng email | Hoàn thành |
+| 5 | Thiết lập RLS và kiểm soát quyền qua Edge Function | Hoàn thành |
+| 6 | Kiểm thử với tối thiểu ba tài khoản và các mức quyền khác nhau | Hoàn thành theo ma trận kiểm thử |
 
-## 3. Phân tích các thành phần cốt lõi
-
-### 3.1. Frontend
-
-Frontend là ứng dụng Flutter đa nền tảng, hiện có các màn hình và thành phần chính:
-
-- `lib/main.dart`: khởi tạo Flutter, Firebase, database và điều hướng theo trạng thái đăng nhập.
-- `lib/pages/document_list_page.dart`: hiển thị danh sách, tìm kiếm, lọc, sửa và xóa tài liệu.
-- `lib/pages/document_form_page.dart`: nhập tiêu đề, mô tả, loại tài liệu và tệp đính kèm.
-- `lib/services/auth_service.dart`: đóng gói đăng nhập Google và đăng xuất.
-- `lib/repositories/document_repository.dart`: lớp trung gian giữa giao diện, database cục bộ và Firestore.
-
-Frontend chịu trách nhiệm hiển thị và nhận thao tác người dùng. Các truy vấn database và lời gọi SDK Cloud được tách khỏi widget thông qua service/repository, giúp dễ bảo trì và kiểm thử.
-
-### 3.2. Backend và tầng dịch vụ
-
-Ứng dụng hiện không có máy chủ backend riêng. Các chức năng backend được cung cấp bởi Firebase:
-
-- **Firebase Authentication** xác thực tài khoản Google, cấp Firebase UID và token.
-- **Cloud Firestore** lưu metadata của tài liệu theo UID người dùng.
-- **Firebase Security Rules** kiểm soát quyền đọc/ghi.
-- `AuthService` và `DocumentRepository` là lớp tích hợp phía ứng dụng, che giấu chi tiết SDK Firebase khỏi giao diện.
-
-Mô hình serverless này phù hợp với ứng dụng nhóm nhỏ vì không cần tự vận hành máy chủ, cân bằng tải hoặc hệ thống xác thực riêng.
-
-### 3.3. Database
-
-Database cục bộ sử dụng Drift/SQLite trên Android/iOS và IndexedDB trên Web. Bảng `Documents` gồm:
-
-| Trường | Ý nghĩa |
-|---|---|
-| `id` | UUID của tài liệu |
-| `title` | Tiêu đề bắt buộc |
-| `description` | Mô tả |
-| `type` | `lecture`, `assignment` hoặc `reference` |
-| `filePath` | Đường dẫn tệp cục bộ |
-| `createdAt` | Thời điểm tạo |
-| `updatedAt` | Thời điểm cập nhật |
-
-Trên Cloud Firestore, dữ liệu được lưu theo cấu trúc:
-
-```text
-users/{uid}/documents/{documentId}
-```
-
-Cách tổ chức này tạo vùng dữ liệu riêng cho từng người dùng và phù hợp với luật:
-
-```text
-request.auth.uid == userId
-```
-
-### 3.4. File Storage
-
-Ở phiên bản hiện tại, nội dung tài liệu và tệp đính kèm vẫn được lưu cục bộ; Firestore chỉ lưu `filePath` và metadata. Đây là giới hạn quan trọng: đường dẫn cục bộ không thể dùng để tải tệp từ một thiết bị khác.
-
-Phương án hoàn thiện cần bổ sung **Firebase Cloud Storage**:
-
-- Tệp được tải lên `users/{uid}/files/{documentId}/{fileName}`.
-- Firestore lưu `storagePath`, tên tệp, kích thước, MIME type và thời điểm tải lên.
-- Khi mở tài liệu, ứng dụng lấy URL hoặc tải tệp từ Cloud Storage.
-- Tệp cục bộ có thể được dùng làm cache offline.
-
-## 4. Hạn chế của mô hình truyền thống
-
-Nếu chỉ lưu dữ liệu trên thiết bị hoặc máy chủ vật lý nội bộ, hệ thống gặp các vấn đề sau:
-
-| Hạn chế | Tác động |
-|---|---|
-| Lưu trữ phụ thuộc thiết bị | Mất thiết bị hoặc hỏng ổ đĩa có thể làm mất dữ liệu. |
-| Không truy cập từ xa | Người dùng khó xem tài liệu khi đổi máy hoặc ngoài mạng nội bộ. |
-| Mở rộng thủ công | Phải mua thêm ổ đĩa, máy chủ và cấu hình lại hệ thống khi dữ liệu tăng. |
-| Sao lưu chưa tự động | Dễ quên sao lưu hoặc chỉ có một bản sao dự phòng. |
-| Xác thực phân tán | Khó quản lý tài khoản, phiên đăng nhập và quyền truy cập. |
-| Chi phí vận hành cố định | Phải duy trì phần cứng, điện, mạng và bảo trì ngay cả khi ít sử dụng. |
-| Điểm lỗi đơn | Một máy chủ hoặc router gặp sự cố có thể làm toàn hệ thống ngừng hoạt động. |
-
-## 5. Lựa chọn mô hình Cloud
-
-### 5.1. So sánh mô hình triển khai
-
-| Mô hình | Ưu điểm | Hạn chế | Mức phù hợp |
-|---|---|---|---|
-| Public Cloud | Triển khai nhanh, dịch vụ managed, mở rộng linh hoạt, trả theo mức sử dụng | Phụ thuộc nhà cung cấp và Internet | **Phù hợp nhất** |
-| Private Cloud | Kiểm soát hạ tầng và dữ liệu cao | Chi phí đầu tư, vận hành và nhân sự lớn | Chưa phù hợp với ứng dụng sinh viên |
-| Hybrid Cloud | Kết hợp dữ liệu nội bộ và Cloud, linh hoạt với dữ liệu nhạy cảm | Kiến trúc và đồng bộ phức tạp | Có thể dùng ở giai đoạn mở rộng |
-
-### 5.2. Phương án đề xuất
-
-Chọn **Public Cloud theo mô hình serverless**, sử dụng hệ sinh thái Firebase:
-
-- **Firebase Authentication**: đăng nhập Google, quản lý phiên và UID.
-- **Cloud Firestore**: lưu metadata và dữ liệu tài liệu.
-- **Cloud Storage for Firebase**: lưu nội dung tệp đính kèm.
-- **Firebase Security Rules**: phân quyền theo `request.auth.uid`.
-- **Firebase Console/CLI**: quản trị project, theo dõi và triển khai rules.
-
-Firebase được chọn vì ứng dụng Flutter đã có cấu hình `firebase_options.dart`, `google-services.json`, Firebase Authentication và Cloud Firestore. So với tự triển khai AWS S3/Azure Blob cùng backend riêng, Firebase giúp giảm số lượng thành phần phải vận hành. Nếu cần mở rộng doanh nghiệp, Cloud Storage có thể được thay thế hoặc kết nối với Google Cloud Storage thông qua backend có kiểm soát.
-
-## 6. Kiến trúc tích hợp Cloud
+## 3. Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
-    U[Người dùng] --> APP[Flutter App]
-    APP --> AUTH[Firebase Authentication<br/>Google Sign-In]
-    AUTH --> UID[Firebase UID]
-    APP --> LOCAL[Drift / SQLite / IndexedDB]
-    APP --> FS[Cloud Firestore<br/>users/uid/documents]
-    APP --> STORAGE[Cloud Storage<br/>users/uid/files]
-    RULES[Security Rules] -. kiểm soát .-> FS
-    RULES -. kiểm soát .-> STORAGE
+    USER[Người dùng] --> APP[Flutter App]
+    APP --> AUTH[Firebase Authentication]
+    AUTH --> TOKEN[Firebase ID Token]
+    APP --> API[Supabase Edge Function<br/>documents-api]
+    TOKEN --> API
+    API --> DB[(Supabase PostgreSQL)]
+    API --> STORAGE[Supabase Storage<br/>bucket documents]
+    APP --> CACHE[Drift / SQLite]
 ```
 
-### 6.1. Luồng đăng nhập
+### 3.1. Vai trò của từng thành phần
+
+- **Flutter:** giao diện đăng nhập, danh sách, tìm kiếm, biểu mẫu, mở, sửa, xóa
+  và chia sẻ tài liệu.
+- **Firebase Authentication:** đăng nhập Google, quản lý phiên và cấp Firebase
+  UID/ID token.
+- **Supabase Edge Function `documents-api`:** xác minh Firebase ID token,
+  đồng bộ người dùng, kiểm tra quyền và thực hiện các thao tác bảo mật với
+  database/storage.
+- **Supabase PostgreSQL:** lưu người dùng, metadata tài liệu và quyền chia sẻ.
+- **Supabase Storage:** lưu tệp vật lý trong bucket riêng tư `documents`.
+- **Drift/SQLite:** bộ nhớ đệm cục bộ để hiển thị nhanh danh sách tài liệu.
+
+Client không sử dụng service role key. Các thao tác Cloud được gửi đến Edge
+Function kèm Firebase ID token; service role key chỉ được lưu trong secrets của
+Supabase.
+
+## 4. Xác thực Google bằng Firebase
+
+Luồng đăng nhập:
 
 1. Người dùng chọn **Đăng nhập bằng Google**.
-2. Google trả về thông tin xác thực cho ứng dụng.
-3. Ứng dụng gửi credential đến Firebase Authentication.
-4. Firebase xác thực và trả về Firebase User/UID.
-5. Ứng dụng dùng UID để truy cập đúng vùng dữ liệu `users/{uid}`.
+2. Firebase Authentication xác thực credential Google.
+3. Firebase cấp Firebase UID và ID token.
+4. Ứng dụng gửi token đến `documents-api`.
+5. Edge Function xác minh token, sau đó tạo hoặc cập nhật bản ghi tương ứng
+   trong bảng `users`.
 
-### 6.2. Luồng đọc dữ liệu
-
-1. Ứng dụng khởi tạo Firebase.
-2. `AuthService` theo dõi trạng thái đăng nhập.
-3. Sau khi có UID, `DocumentRepository` đọc collection con `documents`.
-4. Dữ liệu Cloud được ghi vào database cục bộ để hiển thị nhanh và hỗ trợ offline.
-
-### 6.3. Luồng thêm hoặc sửa tài liệu
-
-1. Người dùng nhập metadata và chọn tệp.
-2. Ứng dụng kiểm tra kích thước và định dạng tệp.
-3. Tệp được upload lên Cloud Storage.
-4. Firestore lưu metadata và `storagePath`.
-5. Database cục bộ cập nhật để giao diện phản hồi ngay.
-
-### 6.4. Luồng xóa và đăng xuất
-
-- Khi xóa tài liệu, ứng dụng xóa document Firestore và tệp Cloud Storage tương ứng.
-- Khi đăng xuất, ứng dụng gọi `FirebaseAuth.signOut()` và `GoogleSignIn.signOut()`.
-- Người dùng không còn token hợp lệ nên không thể đọc/ghi dữ liệu theo luật Firestore.
-
-## 7. So sánh trước và sau khi tích hợp Cloud
-
-| Tiêu chí | Mô hình truyền thống | Sau khi tích hợp Cloud |
-|---|---|---|
-| Lưu trữ | Thiết bị hoặc máy chủ nội bộ | Firestore và Cloud Storage |
-| Truy cập | Chủ yếu trong một thiết bị/mạng | Nhiều thiết bị qua Internet |
-| Xác thực | Có thể phải tự xây dựng | Google Sign-In + Firebase Auth |
-| Phân quyền | Khó đồng bộ | Security Rules theo UID |
-| Mở rộng | Mua và cấu hình phần cứng | Dịch vụ managed tự mở rộng |
-| Sao lưu | Thực hiện thủ công | Có thể cấu hình backup và versioning |
-| Hiệu suất | Nhanh khi chỉ dùng local | Local cache nhanh, Cloud đồng bộ khi có mạng |
-| Độ phụ thuộc | Phụ thuộc thiết bị/máy chủ | Phụ thuộc Internet và nhà cung cấp Cloud |
-| Chi phí | Chi phí phần cứng cố định | Trả theo sử dụng, có hạn mức miễn phí |
-
-## 8. Đánh giá tác động
-
-### 8.1. Bảo mật
-
-Lợi ích:
-
-- Firebase Authentication không cần lưu mật khẩu trong ứng dụng.
-- Dữ liệu được phân tách theo UID.
-- Firestore và Storage Rules ngăn người dùng truy cập dữ liệu của tài khoản khác.
-- Kết nối đến Firebase sử dụng HTTPS/TLS.
-
-Rủi ro và biện pháp:
-
-- Không dùng rule mở toàn bộ database trong môi trường thật.
-- Kiểm tra `request.auth != null` và đối chiếu UID ở mọi đường dẫn.
-- Giới hạn kích thước, MIME type và phần mở rộng tệp.
-- Không đưa service account key hoặc secret vào ứng dụng Flutter.
-- Bật App Check khi triển khai chính thức.
-- Thiết lập sao lưu, giám sát và cảnh báo chi phí.
-
-### 8.2. Chi phí
-
-Chi phí giảm do không phải mua và bảo trì máy chủ riêng. Với phạm vi ứng dụng học tập, Firebase Spark plan có thể đáp ứng thử nghiệm trong hạn mức miễn phí. Khi dữ liệu, lượt đọc/ghi hoặc dung lượng tệp tăng, cần theo dõi:
-
-- Số lượt đọc/ghi/xóa Firestore.
-- Dung lượng và băng thông Cloud Storage.
-- Chi phí download tệp nhiều lần.
-- Chi phí backup và log.
-
-Nên phân trang danh sách, tránh đọc toàn bộ collection không cần thiết và chỉ tải tệp khi người dùng yêu cầu.
-
-### 8.3. Hiệu suất và khả năng sẵn sàng
-
-- Database local giúp mở danh sách và tìm kiếm nhanh.
-- Firestore cung cấp đồng bộ và truy cập từ xa.
-- Cloud Storage phù hợp với tệp lớn hơn Firestore.
-- Ứng dụng cần xử lý trạng thái mất mạng, retry có giới hạn và xung đột cập nhật.
-- Có thể dùng `updatedAt` hoặc phiên bản bản ghi để chọn dữ liệu mới nhất.
-
-## 9. Hướng dẫn setup Firebase cho nhóm
-
-### 9.1. Tạo và cấu hình project
-
-1. Truy cập [Firebase Console](https://console.firebase.google.com/).
-2. Tạo hoặc chọn project `quanlytailieuhoctap-cbe2e`.
-3. Bật **Authentication > Sign-in method > Google**.
-4. Tạo **Cloud Firestore Database**.
-5. Tạo **Storage** nếu triển khai upload tệp.
-6. Đăng ký ứng dụng Android với package:
-   `com.example.quan_ly_tai_lieu_hoc_tap`.
-7. Thêm SHA-1 và SHA-256 của debug keystore.
-
-### 9.2. Cấu hình Flutter
-
-```powershell
-flutter pub global activate flutterfire_cli
-firebase login
-flutterfire configure
-flutter pub get
-flutter run
-```
-
-Các file cấu hình Android cần có:
+Các tệp cấu hình Flutter chính:
 
 ```text
 android/app/google-services.json
 lib/firebase_options.dart
+lib/services/auth_service.dart
 ```
 
-### 9.3. Triển khai Security Rules
+Khởi chạy ứng dụng với Supabase publishable key:
 
 ```powershell
-firebase use quanlytailieuhoctap-cbe2e
-firebase deploy --only firestore:rules
+flutter pub get
+flutter run -d emulator-5554 `
+  --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Rule Firestore hiện tại giới hạn dữ liệu tài liệu theo tài khoản:
+Không đưa các secret sau vào ứng dụng Flutter:
+
+- `SUPABASE_SERVICE_ROLE_KEY`
+- Firebase service-account private key
+- Database password hoặc URL kết nối quản trị
+
+## 5. Thiết kế cơ sở dữ liệu Supabase
+
+### 5.1. Bảng `users`
+
+Lưu thông tin tài khoản Firebase đã đăng nhập ứng dụng.
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | `text` | Firebase UID, khóa chính |
+| `email` | `text` | Email tài khoản |
+| `display_name` | `text` | Tên hiển thị |
+| `avatar_url` | `text` | Ảnh đại diện |
+| `created_at` | `timestamptz` | Thời điểm tạo |
+| `updated_at` | `timestamptz` | Thời điểm cập nhật |
+
+### 5.2. Bảng `documents`
+
+Lưu metadata và quan hệ sở hữu của tài liệu.
+
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `id` | `uuid` | Khóa chính của tài liệu |
+| `owner_id` | `text` | Firebase UID của chủ sở hữu |
+| `title` | `text` | Tiêu đề |
+| `description` | `text` | Mô tả |
+| `type` | `text` | Loại tài liệu |
+| `storage_path` | `text` | Đường dẫn trong bucket `documents` |
+| `file_name` | `text` | Tên tệp |
+| `mime_type` | `text` | Kiểu MIME |
+| `size_bytes` | `bigint` | Kích thước tệp |
+| `created_at` | `timestamptz` | Thời điểm tạo |
+| `updated_at` | `timestamptz` | Thời điểm cập nhật |
+
+Đường dẫn tệp có dạng:
 
 ```text
-match /users/{userId}/documents/{documentId} {
-  allow read, write: if request.auth != null
-                     && request.auth.uid == userId;
-}
+<owner_firebase_uid>/<document_id>/<file_name>
 ```
 
-Khi bổ sung Cloud Storage, cần triển khai Storage Rules tương tự và không cho phép upload tùy ý ngoài thư mục của UID.
+### 5.3. Bảng `document_permissions`
 
-## 10. Nội dung slide đề xuất
+Lưu quyền chia sẻ giữa tài liệu và người dùng.
 
-Nguyễn Khắc Minh Hiếu tổng hợp slide theo bố cục:
+| Trường | Kiểu | Ý nghĩa |
+|---|---|---|
+| `document_id` | `uuid` | Tài liệu được chia sẻ |
+| `user_id` | `text` | Firebase UID người nhận |
+| `permission` | `text` | `viewer` hoặc `editor` |
+| `created_at` | `timestamptz` | Thời điểm cấp quyền |
 
-1. Bối cảnh và hạn chế của mô hình lưu trữ truyền thống.
-2. Firebase là gì và các dịch vụ chính.
-3. Kiến trúc ứng dụng Flutter hiện tại.
-4. Firebase Authentication và Google Sign-In.
-5. Cloud Firestore: cấu trúc `users/{uid}/documents`.
-6. Cloud Storage: lưu tệp và metadata.
-7. Security Rules và bảo vệ dữ liệu.
-8. Các bước setup Firebase cho tài khoản nhóm.
-9. So sánh trước/sau khi tích hợp Cloud.
-10. Demo đăng nhập, thêm tài liệu, xem dữ liệu trên Firebase Console và đăng xuất.
+Khóa duy nhất của bảng là cặp `document_id`, `user_id`, nhờ đó việc chia sẻ
+lại sẽ cập nhật quyền thay vì tạo bản ghi trùng.
 
-## 11. Kết luận
+Email chỉ dùng để tìm người nhận trong `users`; hệ thống vẫn lưu Firebase UID
+để phân quyền ổn định. Nếu email chưa từng đăng nhập ứng dụng, thao tác chia sẻ
+bị từ chối.
 
-Public Cloud với Firebase là phương án phù hợp cho hệ thống quản lý tài liệu học tập vì giảm công sức vận hành, hỗ trợ xác thực Google, cung cấp database thời gian thực và mở rộng được khi số lượng người dùng tăng. Kiến trúc hiện tại đã tích hợp Firebase Authentication và Firestore; bước hoàn thiện tiếp theo là chuyển tệp đính kèm từ đường dẫn cục bộ sang Cloud Storage, bổ sung Storage Rules, cơ chế đồng bộ khi offline và kiểm soát chi phí.
+## 6. Chức năng nghiệp vụ
+
+### 6.1. Thêm và cập nhật tài liệu
+
+1. Người dùng nhập tiêu đề, mô tả, loại tài liệu và chọn tệp.
+2. Ứng dụng gửi tệp đến Edge Function dưới dạng dữ liệu mã hóa Base64.
+3. Edge Function lưu tệp vào bucket riêng tư trên Supabase Storage.
+4. Edge Function lưu hoặc cập nhật metadata trong `documents`.
+5. Ứng dụng cập nhật Drift cache.
+
+Giới hạn hiện tại của ứng dụng là tệp tối đa 10 MB. Khi xem tài liệu, Edge
+Function tạo signed URL có thời hạn 15 phút; client không công khai bucket.
+
+### 6.2. Tìm kiếm và xem tài liệu
+
+Danh sách gồm tài liệu do người dùng sở hữu và tài liệu được chia sẻ. Có thể
+tìm kiếm theo tiêu đề, mô tả và tên tệp. Người dùng chỉ nhận được signed URL
+khi đã vượt qua kiểm tra quyền.
+
+### 6.3. Phân quyền
+
+| Quyền | Xem | Cập nhật | Xóa | Chia sẻ |
+|---|:---:|:---:|:---:|:---:|
+| Chủ sở hữu | Có | Có | Có | Có |
+| `editor` | Có | Có | Có | Có |
+| `viewer` | Có | Không | Không | Không |
+
+Editor không trở thành chủ sở hữu. `owner_id` của tài liệu luôn được giữ
+nguyên; khi editor upload tệp mới, tệp vẫn được lưu theo thư mục của chủ sở
+hữu.
+
+## 7. Bảo mật và RLS
+
+RLS được bật trên các bảng `users`, `documents` và `document_permissions`.
+Quyền truy cập trực tiếp của các role client `anon` và `authenticated` bị
+thu hồi. Vì Firebase UID không phải Supabase Auth UID, việc xác thực token
+Firebase và kiểm tra quyền được thực hiện trong Edge Function.
+
+Edge Function thực hiện các bước:
+
+1. Đọc Firebase ID token từ header.
+2. Xác minh chữ ký, issuer, audience và subject của token.
+3. Đồng bộ người dùng vào bảng `users`.
+4. Kiểm tra `owner_id` hoặc bản ghi trong `document_permissions`.
+5. Chỉ thực hiện thao tác tương ứng với quyền được cấp.
+
+Bucket `documents` là private. Chỉ Edge Function có service role mới thao tác
+trực tiếp với Storage; ứng dụng nhận signed URL ngắn hạn sau khi kiểm tra quyền.
+
+## 8. Kiểm thử với ba tài khoản
+
+Ma trận kiểm thử sử dụng ba tài khoản Firebase đã đăng nhập:
+
+| Tài khoản | Vai trò | Kết quả cần xác minh |
+|---|---|---|
+| A | Chủ sở hữu | Tạo, xem, cập nhật, xóa và chia sẻ tài liệu |
+| B | `viewer` | Xem tài liệu được chia sẻ; không cập nhật, xóa hoặc chia sẻ |
+| C | `editor` | Xem, cập nhật, thay tệp, xóa và chia sẻ theo quyền editor |
+
+Các trường hợp kiểm thử bổ sung:
+
+- A chia sẻ bằng email của B với quyền `viewer`.
+- A chia sẻ bằng email của C với quyền `editor`.
+- Nhập email chưa từng đăng nhập: hệ thống từ chối với thông báo tài khoản
+  phải đăng nhập trước.
+- B thử cập nhật/xóa/chia sẻ: API trả về lỗi thiếu quyền.
+- C cập nhật metadata và tệp: bản ghi vẫn giữ `owner_id` của A.
+- Người không có quyền không thể nhận signed URL của tài liệu.
+- Chia sẻ lại cùng một email cập nhật quyền, không tạo bản ghi trùng.
+
+Lệnh kiểm tra mã nguồn:
+
+```powershell
+flutter analyze
+flutter test
+npx supabase db push
+npx supabase functions deploy documents-api --no-verify-jwt
+```
+
+## 9. Cấu trúc mã nguồn liên quan
+
+```text
+lib/
+├── main.dart
+├── pages/
+│   ├── document_list_page.dart
+│   └── document_form_page.dart
+├── repositories/
+│   └── document_repository.dart
+└── services/
+    ├── auth_service.dart
+    └── storage_service.dart
+
+supabase/
+├── functions/documents-api/index.ts
+├── migrations/
+└── DEPLOYMENT.md
+```
+
+## 10. Kết luận
+
+Giải pháp kết hợp Firebase Authentication với Supabase tạo thành kiến trúc
+phù hợp cho ứng dụng Flutter: Firebase đảm nhiệm đăng nhập Google, Supabase
+đảm nhiệm cơ sở dữ liệu quan hệ, phân quyền và lưu trữ tệp. Việc đưa toàn bộ
+thao tác bảo vệ vào Edge Function giúp giữ kín khóa quản trị, kiểm soát quyền
+theo Firebase UID và hỗ trợ chia sẻ tài liệu an toàn giữa nhiều người dùng.
+
+Kết quả đáp ứng sáu mục tiêu của bài tập: xác thực Google, lưu tệp Cloud,
+thiết kế database quan hệ, tìm kiếm/cập nhật/chia sẻ, bảo vệ bằng RLS và kiểm
+thử trên nhiều tài khoản với các mức quyền khác nhau.

@@ -18,11 +18,17 @@ dependencies:
 
   # Google APIs
   googleapis: ^11.4.0
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  firebase_storage: ^13.6.0
+  google_sign_in: ^7.2.0
 
   # Utilities
   file_picker: ^8.1.7
   uuid: ^4.2.1
   provider: ^6.1.1
+  supabase_flutter: ^2.8.0
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
