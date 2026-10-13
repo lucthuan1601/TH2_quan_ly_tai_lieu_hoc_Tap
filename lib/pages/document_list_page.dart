@@ -96,68 +96,16 @@ class _DocumentListPageState extends State<DocumentListPage> {
   }
 
   Future<void> _shareDocument(Document document) async {
-    final emailController = TextEditingController();
-    var permission = 'viewer';
     try {
-      final result = await showDialog<Map<String, String>>(
+      final result = await showDialog<_ShareDialogResult>(
         context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('Chia sẻ tài liệu'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email người nhận',
-                    hintText: 'nguoi-dung@example.com',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: permission,
-                  decoration: const InputDecoration(labelText: 'Quyền'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'viewer',
-                      child: Text('Chỉ xem'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'editor',
-                      child: Text('Được chỉnh sửa'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setDialogState(() => permission = value);
-                    }
-                  },
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Hủy'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, {
-                  'email': emailController.text.trim(),
-                  'permission': permission,
-                }),
-                child: const Text('Chia sẻ'),
-              ),
-            ],
-          ),
-        ),
+        builder: (_) => const _ShareDialog(),
       );
-      final email = result?['email']?.trim();
-      final selectedPermission = result?['permission'];
-      if (email == null || email.isEmpty || selectedPermission == null) {
+      if (result == null) {
         return;
       }
+      final email = result.email.trim();
+      final selectedPermission = result.permission;
       final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
       if (!emailPattern.hasMatch(email)) {
         throw const FormatException('Email người nhận không hợp lệ.');
@@ -179,8 +127,6 @@ class _DocumentListPageState extends State<DocumentListPage> {
           SnackBar(content: Text('Không thể chia sẻ tài liệu: $error')),
         );
       }
-    } finally {
-      emailController.dispose();
     }
   }
 
@@ -353,6 +299,90 @@ class _DocumentListPageState extends State<DocumentListPage> {
         )),
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _ShareDialogResult {
+  const _ShareDialogResult({
+    required this.email,
+    required this.permission,
+  });
+
+  final String email;
+  final String permission;
+}
+
+class _ShareDialog extends StatefulWidget {
+  const _ShareDialog();
+
+  @override
+  State<_ShareDialog> createState() => _ShareDialogState();
+}
+
+class _ShareDialogState extends State<_ShareDialog> {
+  final _emailController = TextEditingController();
+  String _permission = 'viewer';
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Chia sẻ tài liệu'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email người nhận',
+              hintText: 'nguoi-dung@example.com',
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _permission,
+            decoration: const InputDecoration(labelText: 'Quyền'),
+            items: const [
+              DropdownMenuItem(
+                value: 'viewer',
+                child: Text('Chỉ xem'),
+              ),
+              DropdownMenuItem(
+                value: 'editor',
+                child: Text('Được chỉnh sửa'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _permission = value);
+              }
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Hủy'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(
+            context,
+            _ShareDialogResult(
+              email: _emailController.text,
+              permission: _permission,
+            ),
+          ),
+          child: const Text('Chia sẻ'),
+        ),
+      ],
     );
   }
 }
