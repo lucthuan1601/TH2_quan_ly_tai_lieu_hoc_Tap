@@ -1,75 +1,98 @@
-# Phát triển Hệ thống Quản lý Tài liệu Đa nền tảng với Flutter, Firebase và Supabase
+# Thực hành 2: Phát triển Hệ thống Quản lý Tài liệu Đa nền tảng
 
 ## 1. Mục tiêu và phạm vi
 
-Ứng dụng được xây dựng bằng Flutter nhằm quản lý tài liệu học tập trên nhiều thiết
-bị. Người dùng đăng nhập bằng tài khoản Google thông qua Firebase Authentication,
-còn dữ liệu quan hệ, quyền truy cập và tệp vật lý được quản lý trên Supabase.
+Xây dựng ứng dụng quản lý tài liệu học tập đa nền tảng bằng Flutter, kết hợp
+Firebase và Supabase. Hệ thống hỗ trợ lưu trữ tài liệu, gắn thẻ, quản lý vị trí
+vật lý, chia sẻ/mượn tài liệu và gợi ý tài liệu phù hợp với sở thích của người
+dùng.
 
-Trọng tâm của bài tập gồm:
-
-- Xác thực người dùng an toàn bằng Google/Firebase.
-- Lưu trữ tài liệu và metadata trên Cloud.
-- Phân quyền chủ sở hữu, người chỉnh sửa và người chỉ xem.
-- Chia sẻ tài liệu bằng email nhưng chỉ chấp nhận tài khoản đã đăng nhập ứng dụng.
-- Kiểm thử tính toàn vẹn dữ liệu trên nhiều tài khoản.
-
-> **Lưu ý về lựa chọn dịch vụ:** Firebase được dùng cho Authentication. Tệp được
-> lưu trong Supabase Storage thay vì Firebase Storage để phù hợp với gói miễn phí
-> đang sử dụng. Supabase PostgreSQL lưu metadata và quyền chia sẻ.
+Các nền tảng mục tiêu gồm Android, iOS và Web. Giao diện được thiết kế
+responsive để sử dụng thuận tiện trên điện thoại, máy tính bảng và trình duyệt.
 
 ## 2. Checklist triển khai
 
-| STT | Hạng mục | Trạng thái |
+| STT | Hạng mục | Nội dung chính |
 |---:|---|---|
-| 1 | Thiết lập Firebase và đăng nhập Google trong ứng dụng Flutter | Hoàn thành |
-| 2 | Upload tệp vật lý lên Supabase Storage và liên kết với metadata tài liệu | Hoàn thành |
-| 3 | Thiết kế các bảng Người dùng, Tài liệu và Quyền chia sẻ trên Supabase | Hoàn thành |
-| 4 | Tìm kiếm, cập nhật và chia sẻ tài liệu bằng email | Hoàn thành |
-| 5 | Thiết lập RLS và kiểm soát quyền qua Edge Function | Hoàn thành |
-| 6 | Kiểm thử với tối thiểu ba tài khoản và các mức quyền khác nhau | Hoàn thành theo ma trận kiểm thử |
+| 1 | Kiến trúc và mô hình dữ liệu | Firebase Authentication/Messaging kết hợp Supabase Database/Storage |
+| 2 | Giao diện đa nền tảng | Xây dựng giao diện Flutter responsive cho Mobile và Web |
+| 3 | Tag và vị trí | Phân loại bằng tag và lưu vị trí vật lý trên bản đồ |
+| 4 | Chia sẻ và mượn tài liệu | Gửi yêu cầu, phê duyệt/từ chối và cấp quyền truy cập |
+| 5 | Recommendation | Gợi ý tài liệu dựa trên tag và lịch sử tương tác |
+| 6 | Kiểm thử và đóng gói | Kiểm thử chức năng, phân quyền và phát hành ứng dụng |
 
-## 3. Kiến trúc hệ thống
+
+## 3. Phân chia nhiệm vụ
+
+| Checklist | Người phụ trách | Đầu việc |
+|---:|---|--|---|
+| 1. Kiến trúc và mô hình dữ liệu | **Lục Văn Thuận (Nhóm trưởng)** | Thiết kế kiến trúc Firebase/Supabase, database, RLS và quy ước tích hợp |
+| 2. Giao diện đa nền tảng | Nguyễn Khắc Minh Hiếu | Xây dựng giao diện Flutter responsive cho Mobile/Web, đăng nhập, danh sách và biểu mẫu |
+| 3. Tag và vị trí |  Nguyễn Khắc Minh Hiếu | Phát triển tag, tìm kiếm/lọc, bản đồ và quản lý vị trí vật lý | 
+| 4. Chia sẻ và mượn tài liệu | Trần Văn Hồng Quân |Xây dựng luồng chia sẻ, gửi yêu cầu mượn, phê duyệt, từ chối và thu hồi quyền |
+| 5. Recommendation | Hoàng Tùng | Xây dựng thuật toán gợi ý theo tag/lịch sử tương tác và tích hợp thông báo FCM |
+| 6. Kiểm thử và đóng gói | Lục Văn Thuận  | Viết kịch bản kiểm thử, kiểm thử đa nền tảng, sửa lỗi và tạo bản release |
+
+### Thông tin thành viên
+
+| Thành viên | Mã sinh viên | Vai trò |
+|---|---:|---|
+| **Lục Văn Thuận** | **2351170624** | **Nhóm trưởng** |
+| Nguyễn Khắc Minh Hiếu | 225116000 | Thành viên |
+| Trần Văn Hồng Quân | 2351170613 | Thành viên |
+| Hoàng Tùng | 2351170630 | Thành viên |
+
+### Nguyên tắc phối hợp
+
+- Mỗi thành viên phát triển trên một nhánh riêng và mô tả rõ thay đổi trong
+  pull request.
+- Nhóm trưởng Lục Văn Thuận chịu trách nhiệm kiểm tra, giải quyết xung đột và
+  **gộp nhánh code** vào nhánh chính.
+- Các tính năng chỉ được xem là hoàn thành sau khi đã được review và kiểm thử.
+
+## 4. Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
     USER[Người dùng] --> APP[Flutter App]
     APP --> AUTH[Firebase Authentication]
     AUTH --> TOKEN[Firebase ID Token]
-    APP --> API[Supabase Edge Function<br/>documents-api]
+    APP --> MSG[Firebase Cloud Messaging]
+    APP --> API[Supabase API / Edge Function]
     TOKEN --> API
     API --> DB[(Supabase PostgreSQL)]
-    API --> STORAGE[Supabase Storage<br/>bucket documents]
-    APP --> CACHE[Drift / SQLite]
+    API --> STORAGE[Supabase Storage]
+    API --> MAP[Map service]
 ```
 
 ### 3.1. Vai trò của từng thành phần
 
-- **Flutter:** giao diện đăng nhập, danh sách, tìm kiếm, biểu mẫu, mở, sửa, xóa
-  và chia sẻ tài liệu.
-- **Firebase Authentication:** đăng nhập Google, quản lý phiên và cấp Firebase
-  UID/ID token.
-- **Supabase Edge Function `documents-api`:** xác minh Firebase ID token,
-  đồng bộ người dùng, kiểm tra quyền và thực hiện các thao tác bảo mật với
-  database/storage.
-- **Supabase PostgreSQL:** lưu người dùng, metadata tài liệu và quyền chia sẻ.
-- **Supabase Storage:** lưu tệp vật lý trong bucket riêng tư `documents`.
-- **Drift/SQLite:** bộ nhớ đệm cục bộ để hiển thị nhanh danh sách tài liệu.
+- **Flutter:** giao diện đăng nhập, danh sách, tìm kiếm, bản đồ, chia sẻ, mượn
+  và gợi ý tài liệu.
+- **Firebase Authentication:** đăng nhập, quản lý phiên và cấp Firebase UID/ID
+  token.
+- **Firebase Cloud Messaging:** gửi thông báo khi có yêu cầu mượn, chia sẻ hoặc
+  thay đổi trạng thái yêu cầu.
+- **Supabase PostgreSQL:** lưu người dùng, tài liệu, tag, vị trí, quyền chia sẻ,
+  yêu cầu mượn và lịch sử tương tác.
+- **Supabase Storage:** lưu tệp vật lý trong bucket tài liệu riêng tư.
+- **Supabase Edge Function:** xác minh token, kiểm tra quyền và xử lý nghiệp vụ
+  cần bảo mật.
+- **Dịch vụ bản đồ:** hiển thị vị trí tài liệu và hỗ trợ chọn tọa độ.
 
-Client không sử dụng service role key. Các thao tác Cloud được gửi đến Edge
-Function kèm Firebase ID token; service role key chỉ được lưu trong secrets của
-Supabase.
+Client không sử dụng service role key. Khóa quản trị chỉ được lưu trong secrets
+của Supabase; ứng dụng gửi Firebase ID token khi gọi API.
 
-## 4. Xác thực Google bằng Firebase
+## 5. Xác thực và thông báo bằng Firebase
 
 Luồng đăng nhập:
 
-1. Người dùng chọn **Đăng nhập bằng Google**.
-2. Firebase Authentication xác thực credential Google.
-3. Firebase cấp Firebase UID và ID token.
-4. Ứng dụng gửi token đến `documents-api`.
-5. Edge Function xác minh token, sau đó tạo hoặc cập nhật bản ghi tương ứng
-   trong bảng `users`.
+1. Người dùng đăng nhập bằng Firebase Authentication.
+2. Firebase cấp Firebase UID và ID token.
+3. Ứng dụng gửi token đến Supabase API/Edge Function.
+4. Backend xác minh token và đồng bộ người dùng vào bảng `users`.
+5. Firebase Cloud Messaging gửi thông báo cho các sự kiện chia sẻ và mượn tài
+   liệu.
 
 Các tệp cấu hình Flutter chính:
 
@@ -93,7 +116,7 @@ Không đưa các secret sau vào ứng dụng Flutter:
 - Firebase service-account private key
 - Database password hoặc URL kết nối quản trị
 
-## 5. Thiết kế cơ sở dữ liệu Supabase
+## 6. Thiết kế cơ sở dữ liệu Supabase
 
 ### 5.1. Bảng `users`
 
@@ -150,26 +173,45 @@ Email chỉ dùng để tìm người nhận trong `users`; hệ thống vẫn l
 để phân quyền ổn định. Nếu email chưa từng đăng nhập ứng dụng, thao tác chia sẻ
 bị từ chối.
 
-## 6. Chức năng nghiệp vụ
+## 7. Chức năng nghiệp vụ
 
-### 6.1. Thêm và cập nhật tài liệu
+### 6.1. Thêm, cập nhật và phân loại tài liệu
 
-1. Người dùng nhập tiêu đề, mô tả, loại tài liệu và chọn tệp.
-2. Ứng dụng gửi tệp đến Edge Function dưới dạng dữ liệu mã hóa Base64.
-3. Edge Function lưu tệp vào bucket riêng tư trên Supabase Storage.
-4. Edge Function lưu hoặc cập nhật metadata trong `documents`.
-5. Ứng dụng cập nhật Drift cache.
+1. Người dùng nhập tiêu đề, mô tả, loại tài liệu, tag và chọn tệp.
+2. Người dùng chọn vị trí trên bản đồ hoặc nhập địa chỉ lưu trữ vật lý.
+3. Hệ thống lưu tệp vào Supabase Storage và metadata vào PostgreSQL.
+4. Tag được dùng để lọc, tìm kiếm và làm dữ liệu đầu vào cho Recommendation.
 
 Giới hạn hiện tại của ứng dụng là tệp tối đa 10 MB. Khi xem tài liệu, Edge
 Function tạo signed URL có thời hạn 15 phút; client không công khai bucket.
 
-### 6.2. Tìm kiếm và xem tài liệu
+### 6.2. Tìm kiếm, tag và vị trí
 
-Danh sách gồm tài liệu do người dùng sở hữu và tài liệu được chia sẻ. Có thể
-tìm kiếm theo tiêu đề, mô tả và tên tệp. Người dùng chỉ nhận được signed URL
-khi đã vượt qua kiểm tra quyền.
+Danh sách gồm tài liệu do người dùng sở hữu, được chia sẻ hoặc đang được mượn.
+Có thể tìm kiếm theo tiêu đề, mô tả, tên tệp và tag. Màn hình bản đồ hiển thị
+các tài liệu theo tọa độ hoặc khu vực lưu trữ.
 
-### 6.3. Phân quyền
+### 6.3. Chia sẻ và mượn tài liệu
+
+- Chủ sở hữu chọn người dùng, quyền truy cập và gửi lời mời chia sẻ.
+- Người dùng có thể gửi yêu cầu mượn tài liệu trong một khoảng thời gian.
+- Chủ sở hữu nhận thông báo và có thể phê duyệt hoặc từ chối yêu cầu.
+- Khi được phê duyệt, hệ thống tạo quyền truy cập có thời hạn và gửi thông báo
+  cho người mượn.
+- Khi hết hạn hoặc tài liệu được trả, quyền mượn được thu hồi tự động.
+
+Trạng thái yêu cầu mượn gồm `pending`, `approved`, `rejected`, `returned` và
+`expired`. Mọi thay đổi trạng thái đều được kiểm tra quyền ở backend.
+
+### 6.4. Recommendation
+
+Thuật toán gợi ý đơn giản tính điểm cho tài liệu dựa trên mức độ trùng khớp
+tag giữa tài liệu và các tag người dùng thường xem, tìm kiếm, lưu hoặc mượn.
+Tài liệu có nhiều tag trùng khớp hơn được xếp hạng cao hơn; tài liệu người dùng
+đã xem được giảm ưu tiên để tránh lặp lại. Kết quả được cập nhật khi người dùng
+phát sinh tương tác mới.
+
+### 6.5. Phân quyền
 
 | Quyền | Xem | Cập nhật | Xóa | Chia sẻ |
 |---|:---:|:---:|:---:|:---:|
@@ -181,7 +223,7 @@ Editor không trở thành chủ sở hữu. `owner_id` của tài liệu luôn 
 nguyên; khi editor upload tệp mới, tệp vẫn được lưu theo thư mục của chủ sở
 hữu.
 
-## 7. Bảo mật và RLS
+## 8. Bảo mật và RLS
 
 RLS được bật trên các bảng `users`, `documents` và `document_permissions`.
 Quyền truy cập trực tiếp của các role client `anon` và `authenticated` bị
@@ -199,7 +241,17 @@ Edge Function thực hiện các bước:
 Bucket `documents` là private. Chỉ Edge Function có service role mới thao tác
 trực tiếp với Storage; ứng dụng nhận signed URL ngắn hạn sau khi kiểm tra quyền.
 
-## 8. Kiểm thử với ba tài khoản
+## 9. Giao diện responsive
+
+Flutter sử dụng layout thích ứng theo chiều rộng màn hình:
+
+- Mobile: điều hướng bằng thanh điều hướng dưới, danh sách một cột và biểu mẫu
+  toàn màn hình.
+- Web/tablet: điều hướng bên trái, danh sách kết hợp bản đồ hoặc bảng chi tiết.
+- Các thành phần nhập liệu, bản đồ và danh sách đều có trạng thái loading, rỗng
+  và lỗi rõ ràng.
+
+## 10. Kiểm thử và đóng gói
 
 Ma trận kiểm thử sử dụng ba tài khoản Firebase đã đăng nhập:
 
@@ -219,17 +271,28 @@ Các trường hợp kiểm thử bổ sung:
 - C cập nhật metadata và tệp: bản ghi vẫn giữ `owner_id` của A.
 - Người không có quyền không thể nhận signed URL của tài liệu.
 - Chia sẻ lại cùng một email cập nhật quyền, không tạo bản ghi trùng.
+- Tạo, sửa, xóa và lọc tài liệu theo tag.
+- Hiển thị đúng vị trí tài liệu trên bản đồ.
+- Gửi, phê duyệt, từ chối và kết thúc yêu cầu mượn.
+- Gợi ý thay đổi khi người dùng thay đổi lịch sử tương tác.
+- Kiểm tra bố cục trên Android, iOS và Web ở nhiều kích thước màn hình.
 
 Lệnh kiểm tra mã nguồn:
 
 ```powershell
 flutter analyze
 flutter test
-npx supabase db push
-npx supabase functions deploy documents-api --no-verify-jwt
 ```
 
-## 9. Cấu trúc mã nguồn liên quan
+Đóng gói sản phẩm sau khi kiểm thử:
+
+```powershell
+flutter build apk --release
+flutter build web --release
+flutter build ipa --release
+```
+
+## 11. Cấu trúc mã nguồn liên quan
 
 ```text
 lib/
@@ -249,14 +312,10 @@ supabase/
 └── DEPLOYMENT.md
 ```
 
-## 10. Kết luận
+## 12. Kết luận
 
-Giải pháp kết hợp Firebase Authentication với Supabase tạo thành kiến trúc
-phù hợp cho ứng dụng Flutter: Firebase đảm nhiệm đăng nhập Google, Supabase
-đảm nhiệm cơ sở dữ liệu quan hệ, phân quyền và lưu trữ tệp. Việc đưa toàn bộ
-thao tác bảo vệ vào Edge Function giúp giữ kín khóa quản trị, kiểm soát quyền
-theo Firebase UID và hỗ trợ chia sẻ tài liệu an toàn giữa nhiều người dùng.
-
-Kết quả đáp ứng sáu mục tiêu của bài tập: xác thực Google, lưu tệp Cloud,
-thiết kế database quan hệ, tìm kiếm/cập nhật/chia sẻ, bảo vệ bằng RLS và kiểm
-thử trên nhiều tài khoản với các mức quyền khác nhau.
+Hệ thống đáp ứng sáu mục tiêu của Thực hành 2: kiến trúc Firebase/Supabase,
+giao diện Flutter đa nền tảng, phân loại và định vị tài liệu, chia sẻ/mượn,
+Recommendation, kiểm thử và đóng gói sản phẩm. Việc tách xác thực, thông báo,
+database và storage theo đúng vai trò giúp hệ thống dễ mở rộng, bảo mật và
+phù hợp với nhu cầu quản lý tài liệu học tập.
