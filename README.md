@@ -25,7 +25,7 @@ responsive để sử dụng thuận tiện trên điện thoại, máy tính b�
 ## 3. Phân chia nhiệm vụ
 
 | Checklist | Người phụ trách | Đầu việc |
-|---:|---|--|---|
+|---:|---|---|
 | 1. Kiến trúc và mô hình dữ liệu | **Lục Văn Thuận (Nhóm trưởng)** | Thiết kế kiến trúc Firebase/Supabase, database, RLS và quy ước tích hợp |
 | 2. Giao diện đa nền tảng | Nguyễn Khắc Minh Hiếu | Xây dựng giao diện Flutter responsive cho Mobile/Web, đăng nhập, danh sách và biểu mẫu |
 | 3. Tag và vị trí |  Nguyễn Khắc Minh Hiếu | Phát triển tag, tìm kiếm/lọc, bản đồ và quản lý vị trí vật lý | 
