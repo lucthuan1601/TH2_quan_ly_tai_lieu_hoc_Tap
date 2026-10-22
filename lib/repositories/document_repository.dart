@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../models/borrow_request.dart';
 import '../models/document_struct.dart';
 
 class DocumentRepository {
@@ -63,8 +64,12 @@ class DocumentRepository {
     return response.data;
   }
 
-  Stream<List<Document>> watchDocuments(
-      {String query = '', DocumentType? type}) {
+  /// Theo dõi danh sách tài liệu với bộ lọc theo loại, tag và tìm kiếm đa trường
+  Stream<List<Document>> watchDocuments({
+    String query = '',
+    DocumentType? type,
+    String? selectedTag,
+  }) {
     if (_client != null && !_refreshStarted) {
       _refreshStarted = true;
       refreshFromCloud();
@@ -75,14 +80,48 @@ class DocumentRepository {
       statement.where((document) => document.type.equals(type.name));
     }
     final normalizedQuery = _normalize(query);
-    return statement.watch().map((documents) {
-      if (normalizedQuery.isEmpty) return documents;
+    final normalizedTag = selectedTag != null && selectedTag.isNotEmpty
+        ? _normalize(selectedTag)
+        : null;
 
-      final words = normalizedQuery.split(' ');
-      return documents.where((document) {
-        final title = _normalize(document.title);
-        return words.every(title.contains);
+    return statement.watch().map((documents) {
+      var result = documents;
+
+      // Lọc theo tag được chọn nếu có
+      if (normalizedTag != null && normalizedTag.isNotEmpty) {
+        result = result.where((doc) {
+          final docTags = parseTags(doc.tags).map(_normalize);
+          return docTags.contains(normalizedTag);
+        }).toList();
+      }
+
+      // Tìm kiếm từ khóa đa trường: tiêu đề, mô tả, tên tệp, tags, địa chỉ
+      if (normalizedQuery.isEmpty) return result;
+
+      final words = normalizedQuery.split(' ').where((w) => w.isNotEmpty).toList();
+      return result.where((document) {
+        final searchableText = _normalize(
+          '${document.title} '
+          '${document.description ?? ''} '
+          '${document.filePath ?? ''} '
+          '${document.tags} '
+          '${document.physicalAddress ?? ''}',
+        );
+        return words.every(searchableText.contains);
       }).toList();
+    });
+  }
+
+  /// Theo dõi tất cả các tags duy nhất hiện có trong cơ sở dữ liệu
+  Stream<List<String>> watchAllTags() {
+    return _database.select(_database.documents).watch().map((documents) {
+      final tagSet = <String>{};
+      for (final doc in documents) {
+        for (final tag in parseTags(doc.tags)) {
+          tagSet.add(tag);
+        }
+      }
+      return tagSet.toList()..sort();
     });
   }
 
@@ -170,6 +209,10 @@ class DocumentRepository {
     String? description,
     required DocumentType type,
     String? filePath,
+    List<String> tags = const [],
+    String? physicalAddress,
+    double? latitude,
+    double? longitude,
     String? ownerId,
     String? fileName,
     String? mimeType,
@@ -178,6 +221,7 @@ class DocumentRepository {
   }) async {
     final now = DateTime.now();
     final documentId = id ?? _uuid.v4();
+    final formattedTags = formatTags(tags);
 
     if (_client != null) {
       final resolvedOwnerId =
@@ -194,7 +238,14 @@ class DocumentRepository {
         'file_name': fileName,
         'mime_type': mimeType,
         'size_bytes': sizeBytes,
+<<<<<<< HEAD
         if (tags != null) 'tags': tags,
+=======
+        'tags': tags,
+        'physical_address': physicalAddress?.trim(),
+        'latitude': latitude,
+        'longitude': longitude,
+>>>>>>> origin/main
       });
     }
 
@@ -205,6 +256,10 @@ class DocumentRepository {
             description: Value(description?.trim()),
             type: type.name,
             filePath: Value(filePath),
+            tags: Value(formattedTags),
+            physicalAddress: Value(physicalAddress?.trim()),
+            latitude: Value(latitude),
+            longitude: Value(longitude),
             createdAt: now,
             updatedAt: now,
           ),
@@ -235,6 +290,17 @@ class DocumentRepository {
               DateTime.now();
       final updatedAt =
           DateTime.tryParse(row['updated_at']?.toString() ?? '') ?? createdAt;
+
+      // Xử lý an toàn các trường tags và vị trí từ cloud
+      final rawTags = row['tags'];
+      final tagsStr = rawTags is List
+          ? rawTags.map((e) => e.toString()).join(', ')
+          : (rawTags?.toString() ?? '');
+      final physicalAddress = row['physical_address']?.toString() ??
+          row['physicalAddress']?.toString();
+      final lat = row['latitude'] != null ? double.tryParse(row['latitude'].toString()) : null;
+      final lng = row['longitude'] != null ? double.tryParse(row['longitude'].toString()) : null;
+
       await _database.into(_database.documents).insertOnConflictUpdate(
             DocumentsCompanion.insert(
               id: row['id'].toString(),
@@ -242,6 +308,10 @@ class DocumentRepository {
               description: Value(row['description'] as String?),
               type: row['type'].toString(),
               filePath: Value(row['storage_path'] as String?),
+              tags: Value(tagsStr),
+              physicalAddress: Value(physicalAddress),
+              latitude: Value(lat),
+              longitude: Value(lng),
               createdAt: createdAt,
               updatedAt: updatedAt,
             ),
@@ -275,6 +345,7 @@ class DocumentRepository {
     });
   }
 
+<<<<<<< HEAD
   Future<List<Map<String, dynamic>>> recommendations() async {
     if (_client == null) return [];
     final rows = await _invoke('/recommendations') as List<dynamic>;
@@ -305,5 +376,55 @@ class DocumentRepository {
     if (_client == null) return;
     await _invoke('/fcm-token',
         method: HttpMethod.delete, body: {'token': token});
+=======
+  // ===== Mục 4: chia sẻ và mượn tài liệu =====
+
+  Future<List<SharedAccess>> listShares(String documentId) async {
+    final rows = await _invoke('/share/$documentId') as List<dynamic>;
+    return rows
+        .map((row) => SharedAccess.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> revokeShare({
+    required String documentId,
+    required String userId,
+  }) async {
+    await _invoke('/share/$documentId/$userId', method: HttpMethod.delete);
+  }
+
+  Future<List<BorrowableDocument>> listBorrowable() async {
+    final rows = await _invoke('/borrowable') as List<dynamic>;
+    return rows
+        .map((row) =>
+            BorrowableDocument.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> requestBorrow({
+    required String documentId,
+    required DateTime until,
+    String? message,
+  }) async {
+    await _invoke('/borrow', method: HttpMethod.post, body: {
+      'document_id': documentId,
+      'borrow_until': until.toUtc().toIso8601String(),
+      'message': message?.trim().isEmpty ?? true ? null : message!.trim(),
+    });
+  }
+
+  Future<List<BorrowRequest>> listBorrowRequests({required bool incoming}) async {
+    final rows = await _invoke(
+      '/borrow?role=${incoming ? 'incoming' : 'outgoing'}',
+    ) as List<dynamic>;
+    return rows
+        .map((row) => BorrowRequest.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// [action] là một trong: approve, reject, return.
+  Future<void> decideBorrow(String requestId, String action) async {
+    await _invoke('/borrow/$requestId/$action', method: HttpMethod.post);
+>>>>>>> origin/main
   }
 }

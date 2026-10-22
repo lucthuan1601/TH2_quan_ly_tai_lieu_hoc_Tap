@@ -36,6 +36,31 @@ class $DocumentsTable extends Documents
   late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
       'file_path', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+      'tags', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _physicalAddressMeta =
+      const VerificationMeta('physicalAddress');
+  @override
+  late final GeneratedColumn<String> physicalAddress = GeneratedColumn<String>(
+      'physical_address', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _latitudeMeta =
+      const VerificationMeta('latitude');
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+      'latitude', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _longitudeMeta =
+      const VerificationMeta('longitude');
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+      'longitude', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -49,8 +74,19 @@ class $DocumentsTable extends Documents
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, title, description, type, filePath, createdAt, updatedAt];
+  List<GeneratedColumn> get $columns => [
+        id,
+        title,
+        description,
+        type,
+        filePath,
+        tags,
+        physicalAddress,
+        latitude,
+        longitude,
+        createdAt,
+        updatedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -88,6 +124,24 @@ class $DocumentsTable extends Documents
       context.handle(_filePathMeta,
           filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta));
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+          _tagsMeta, tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta));
+    }
+    if (data.containsKey('physical_address')) {
+      context.handle(
+          _physicalAddressMeta,
+          physicalAddress.isAcceptableOrUnknown(
+              data['physical_address']!, _physicalAddressMeta));
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(_latitudeMeta,
+          latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta));
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(_longitudeMeta,
+          longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -119,6 +173,14 @@ class $DocumentsTable extends Documents
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
       filePath: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}file_path']),
+      tags: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tags'])!,
+      physicalAddress: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}physical_address']),
+      latitude: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}latitude']),
+      longitude: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}longitude']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -138,6 +200,10 @@ class Document extends DataClass implements Insertable<Document> {
   final String? description;
   final String type;
   final String? filePath;
+  final String tags;
+  final String? physicalAddress;
+  final double? latitude;
+  final double? longitude;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Document(
@@ -146,6 +212,10 @@ class Document extends DataClass implements Insertable<Document> {
       this.description,
       required this.type,
       this.filePath,
+      required this.tags,
+      this.physicalAddress,
+      this.latitude,
+      this.longitude,
       required this.createdAt,
       required this.updatedAt});
   @override
@@ -159,6 +229,16 @@ class Document extends DataClass implements Insertable<Document> {
     map['type'] = Variable<String>(type);
     if (!nullToAbsent || filePath != null) {
       map['file_path'] = Variable<String>(filePath);
+    }
+    map['tags'] = Variable<String>(tags);
+    if (!nullToAbsent || physicalAddress != null) {
+      map['physical_address'] = Variable<String>(physicalAddress);
+    }
+    if (!nullToAbsent || latitude != null) {
+      map['latitude'] = Variable<double>(latitude);
+    }
+    if (!nullToAbsent || longitude != null) {
+      map['longitude'] = Variable<double>(longitude);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -176,6 +256,16 @@ class Document extends DataClass implements Insertable<Document> {
       filePath: filePath == null && nullToAbsent
           ? const Value.absent()
           : Value(filePath),
+      tags: Value(tags),
+      physicalAddress: physicalAddress == null && nullToAbsent
+          ? const Value.absent()
+          : Value(physicalAddress),
+      latitude: latitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(latitude),
+      longitude: longitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(longitude),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -190,6 +280,10 @@ class Document extends DataClass implements Insertable<Document> {
       description: serializer.fromJson<String?>(json['description']),
       type: serializer.fromJson<String>(json['type']),
       filePath: serializer.fromJson<String?>(json['filePath']),
+      tags: serializer.fromJson<String>(json['tags']),
+      physicalAddress: serializer.fromJson<String?>(json['physicalAddress']),
+      latitude: serializer.fromJson<double?>(json['latitude']),
+      longitude: serializer.fromJson<double?>(json['longitude']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -203,6 +297,10 @@ class Document extends DataClass implements Insertable<Document> {
       'description': serializer.toJson<String?>(description),
       'type': serializer.toJson<String>(type),
       'filePath': serializer.toJson<String?>(filePath),
+      'tags': serializer.toJson<String>(tags),
+      'physicalAddress': serializer.toJson<String?>(physicalAddress),
+      'latitude': serializer.toJson<double?>(latitude),
+      'longitude': serializer.toJson<double?>(longitude),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -214,6 +312,10 @@ class Document extends DataClass implements Insertable<Document> {
           Value<String?> description = const Value.absent(),
           String? type,
           Value<String?> filePath = const Value.absent(),
+          String? tags,
+          Value<String?> physicalAddress = const Value.absent(),
+          Value<double?> latitude = const Value.absent(),
+          Value<double?> longitude = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt}) =>
       Document(
@@ -222,6 +324,12 @@ class Document extends DataClass implements Insertable<Document> {
         description: description.present ? description.value : this.description,
         type: type ?? this.type,
         filePath: filePath.present ? filePath.value : this.filePath,
+        tags: tags ?? this.tags,
+        physicalAddress: physicalAddress.present
+            ? physicalAddress.value
+            : this.physicalAddress,
+        latitude: latitude.present ? latitude.value : this.latitude,
+        longitude: longitude.present ? longitude.value : this.longitude,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
@@ -233,6 +341,12 @@ class Document extends DataClass implements Insertable<Document> {
           data.description.present ? data.description.value : this.description,
       type: data.type.present ? data.type.value : this.type,
       filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      physicalAddress: data.physicalAddress.present
+          ? data.physicalAddress.value
+          : this.physicalAddress,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -246,6 +360,10 @@ class Document extends DataClass implements Insertable<Document> {
           ..write('description: $description, ')
           ..write('type: $type, ')
           ..write('filePath: $filePath, ')
+          ..write('tags: $tags, ')
+          ..write('physicalAddress: $physicalAddress, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -253,8 +371,8 @@ class Document extends DataClass implements Insertable<Document> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, title, description, type, filePath, createdAt, updatedAt);
+  int get hashCode => Object.hash(id, title, description, type, filePath, tags,
+      physicalAddress, latitude, longitude, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -264,6 +382,10 @@ class Document extends DataClass implements Insertable<Document> {
           other.description == this.description &&
           other.type == this.type &&
           other.filePath == this.filePath &&
+          other.tags == this.tags &&
+          other.physicalAddress == this.physicalAddress &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -274,6 +396,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
   final Value<String?> description;
   final Value<String> type;
   final Value<String?> filePath;
+  final Value<String> tags;
+  final Value<String?> physicalAddress;
+  final Value<double?> latitude;
+  final Value<double?> longitude;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -283,6 +409,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     this.description = const Value.absent(),
     this.type = const Value.absent(),
     this.filePath = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.physicalAddress = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -293,6 +423,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     this.description = const Value.absent(),
     required String type,
     this.filePath = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.physicalAddress = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -307,6 +441,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     Expression<String>? description,
     Expression<String>? type,
     Expression<String>? filePath,
+    Expression<String>? tags,
+    Expression<String>? physicalAddress,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -317,6 +455,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       if (description != null) 'description': description,
       if (type != null) 'type': type,
       if (filePath != null) 'file_path': filePath,
+      if (tags != null) 'tags': tags,
+      if (physicalAddress != null) 'physical_address': physicalAddress,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -329,6 +471,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       Value<String?>? description,
       Value<String>? type,
       Value<String?>? filePath,
+      Value<String>? tags,
+      Value<String?>? physicalAddress,
+      Value<double?>? latitude,
+      Value<double?>? longitude,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
@@ -338,6 +484,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       description: description ?? this.description,
       type: type ?? this.type,
       filePath: filePath ?? this.filePath,
+      tags: tags ?? this.tags,
+      physicalAddress: physicalAddress ?? this.physicalAddress,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -362,6 +512,18 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     if (filePath.present) {
       map['file_path'] = Variable<String>(filePath.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
+    if (physicalAddress.present) {
+      map['physical_address'] = Variable<String>(physicalAddress.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -382,6 +544,10 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
           ..write('description: $description, ')
           ..write('type: $type, ')
           ..write('filePath: $filePath, ')
+          ..write('tags: $tags, ')
+          ..write('physicalAddress: $physicalAddress, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -407,6 +573,10 @@ typedef $$DocumentsTableCreateCompanionBuilder = DocumentsCompanion Function({
   Value<String?> description,
   required String type,
   Value<String?> filePath,
+  Value<String> tags,
+  Value<String?> physicalAddress,
+  Value<double?> latitude,
+  Value<double?> longitude,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<int> rowid,
@@ -417,6 +587,10 @@ typedef $$DocumentsTableUpdateCompanionBuilder = DocumentsCompanion Function({
   Value<String?> description,
   Value<String> type,
   Value<String?> filePath,
+  Value<String> tags,
+  Value<String?> physicalAddress,
+  Value<double?> latitude,
+  Value<double?> longitude,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<int> rowid,
@@ -445,6 +619,19 @@ class $$DocumentsTableFilterComposer
 
   ColumnFilters<String> get filePath => $composableBuilder(
       column: $table.filePath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get physicalAddress => $composableBuilder(
+      column: $table.physicalAddress,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+      column: $table.latitude, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+      column: $table.longitude, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -477,6 +664,19 @@ class $$DocumentsTableOrderingComposer
   ColumnOrderings<String> get filePath => $composableBuilder(
       column: $table.filePath, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get tags => $composableBuilder(
+      column: $table.tags, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get physicalAddress => $composableBuilder(
+      column: $table.physicalAddress,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+      column: $table.latitude, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+      column: $table.longitude, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -507,6 +707,18 @@ class $$DocumentsTableAnnotationComposer
 
   GeneratedColumn<String> get filePath =>
       $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
+  GeneratedColumn<String> get physicalAddress => $composableBuilder(
+      column: $table.physicalAddress, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -543,6 +755,10 @@ class $$DocumentsTableTableManager extends RootTableManager<
             Value<String?> description = const Value.absent(),
             Value<String> type = const Value.absent(),
             Value<String?> filePath = const Value.absent(),
+            Value<String> tags = const Value.absent(),
+            Value<String?> physicalAddress = const Value.absent(),
+            Value<double?> latitude = const Value.absent(),
+            Value<double?> longitude = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -553,6 +769,10 @@ class $$DocumentsTableTableManager extends RootTableManager<
             description: description,
             type: type,
             filePath: filePath,
+            tags: tags,
+            physicalAddress: physicalAddress,
+            latitude: latitude,
+            longitude: longitude,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
@@ -563,6 +783,10 @@ class $$DocumentsTableTableManager extends RootTableManager<
             Value<String?> description = const Value.absent(),
             required String type,
             Value<String?> filePath = const Value.absent(),
+            Value<String> tags = const Value.absent(),
+            Value<String?> physicalAddress = const Value.absent(),
+            Value<double?> latitude = const Value.absent(),
+            Value<double?> longitude = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
@@ -573,6 +797,10 @@ class $$DocumentsTableTableManager extends RootTableManager<
             description: description,
             type: type,
             filePath: filePath,
+            tags: tags,
+            physicalAddress: physicalAddress,
+            latitude: latitude,
+            longitude: longitude,
             createdAt: createdAt,
             updatedAt: updatedAt,
             rowid: rowid,
