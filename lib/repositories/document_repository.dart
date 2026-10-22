@@ -217,6 +217,7 @@ class DocumentRepository {
     String? fileName,
     String? mimeType,
     int? sizeBytes,
+    List<String>? tags,
   }) async {
     final now = DateTime.now();
     final documentId = id ?? _uuid.v4();
@@ -237,10 +238,14 @@ class DocumentRepository {
         'file_name': fileName,
         'mime_type': mimeType,
         'size_bytes': sizeBytes,
+<<<<<<< HEAD
+        if (tags != null) 'tags': tags,
+=======
         'tags': tags,
         'physical_address': physicalAddress?.trim(),
         'latitude': latitude,
         'longitude': longitude,
+>>>>>>> origin/main
       });
     }
 
@@ -340,6 +345,38 @@ class DocumentRepository {
     });
   }
 
+<<<<<<< HEAD
+  Future<List<Map<String, dynamic>>> recommendations() async {
+    if (_client == null) return [];
+    final rows = await _invoke('/recommendations') as List<dynamic>;
+    return rows.map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
+  Future<List<String>> tagsForDocument(String documentId) async {
+    if (_client == null) return [];
+    final rows = await _invoke('/documents/$documentId/tags') as List<dynamic>;
+    return rows.map((tag) => tag.toString()).toList();
+  }
+
+  Future<void> recordInteraction(String documentId, String action) async {
+    if (_client == null) return;
+    await _invoke('/interactions', method: HttpMethod.post, body: {
+      'document_id': documentId,
+      'action': action,
+    });
+  }
+
+  Future<void> registerFcmToken(String token) async {
+    if (_client == null) return;
+    await _invoke('/fcm-token',
+        method: HttpMethod.post, body: {'token': token});
+  }
+
+  Future<void> unregisterFcmToken(String token) async {
+    if (_client == null) return;
+    await _invoke('/fcm-token',
+        method: HttpMethod.delete, body: {'token': token});
+=======
   // ===== Mục 4: chia sẻ và mượn tài liệu =====
 
   Future<List<SharedAccess>> listShares(String documentId) async {
@@ -388,5 +425,6 @@ class DocumentRepository {
   /// [action] là một trong: approve, reject, return.
   Future<void> decideBorrow(String requestId, String action) async {
     await _invoke('/borrow/$requestId/$action', method: HttpMethod.post);
+>>>>>>> origin/main
   }
 }

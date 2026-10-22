@@ -18,6 +18,12 @@ supabase secrets set `
   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
+For FCM notifications, set `FIREBASE_SERVICE_ACCOUNT_JSON` to the complete
+Firebase service-account JSON as a Supabase secret. Keep it out of Flutter and
+source control. Without this secret, sharing still works but push notifications
+are skipped. Configure FCM for each target platform; web also needs a VAPID
+key before browser token registration can work.
+
 Supabase Storage is used for document files, so Firebase Storage and Firebase
 service-account secrets are not required for file storage. The service-role key
 is used only inside the Edge Function.
@@ -51,6 +57,12 @@ The function accepts the Firebase ID token in `x-firebase-token`. It provides:
   resolved Firebase UID is stored in `document_permissions`.
 - `DELETE /share/:documentId/:userId`: owner-only revoke.
 - `GET /documents/:id/file-url`: a 15-minute signed Supabase Storage URL.
+- `GET /recommendations`: accessible documents ranked by matching tag history.
+- `POST /interactions`: record view, search, save, or borrow events for a document
+  the caller can access.
+- `GET /documents/:id/tags`: tags for an accessible document.
+- `POST /fcm-token` and `DELETE /fcm-token`: register and remove this device's
+  FCM token. Sharing triggers a push to registered recipient devices.
 
 The file URL is issued from the private Supabase Storage
 `documents` bucket.
