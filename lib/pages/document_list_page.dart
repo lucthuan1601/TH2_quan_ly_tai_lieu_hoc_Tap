@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 import '../database/database.dart';
 import '../models/document_struct.dart';
 import '../repositories/document_repository.dart';
+import 'borrow_page.dart';
 import 'document_form_page.dart';
+import 'share_manager_dialog.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 
@@ -168,6 +170,15 @@ class _DocumentListPageState extends State<DocumentListPage> {
         actions: widget.authService == null
             ? null
             : [
+                IconButton(
+                  tooltip: 'Mượn tài liệu',
+                  icon: const Icon(Icons.swap_horiz),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => BorrowPage(repository: widget.repository),
+                    ),
+                  ),
+                ),
                 if (widget.user?.email != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 210),
@@ -271,6 +282,17 @@ class _DocumentListPageState extends State<DocumentListPage> {
                             onPressed: _isBusy
                                 ? null
                                 : () => _deleteDocument(document),
+                          ),
+                          IconButton(
+                            tooltip: 'Quản lý quyền truy cập',
+                            icon: const Icon(Icons.manage_accounts_outlined),
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (_) => ShareManagerDialog(
+                                repository: widget.repository,
+                                documentId: document.id,
+                              ),
+                            ),
                           ),
                           IconButton(
                             tooltip: 'Chia sẻ tài liệu',
