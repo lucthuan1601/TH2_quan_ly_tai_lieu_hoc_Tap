@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:async';
 
 import '../database/database.dart';
 import '../models/document_struct.dart';
@@ -28,6 +30,73 @@ class _DocumentListPageState extends State<DocumentListPage> {
   final _searchController = TextEditingController();
   DocumentType? _type;
   bool _isBusy = false;
+  StreamSubscription<String>? _tokenSubscription;
+  String? _fcmToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupNotifications();
+  }
+
+  Future<void> _setupNotifications() async {
+    try {
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission();
+      if (settings.authorizationStatus == AuthorizationStatus.denied) return;
+      final token = await messaging.getToken();
+      if (token != null) {
+        _fcmToken = token;
+        await widget.repository.registerFcmToken(token);
+      }
+      _tokenSubscription = messaging.onTokenRefresh.listen((token) {
+        _fcmToken = token;
+        widget.repository.registerFcmToken(token);
+      });
+    } catch (_) {
+      // Notifications are optional when a platform has no FCM configuration.
+    }
+  }
+
+  Future<void> _showRecommendations() async {
+    try {
+      final recommendations = await widget.repository.recommendations();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Gợi ý cho bạn'),
+          content: SizedBox(
+            width: 420,
+            height: 400,
+            child: recommendations.isEmpty
+                ? const Center(child: Text('Chưa có tài liệu gợi ý'))
+                : ListView.builder(
+                    itemCount: recommendations.length,
+                    itemBuilder: (context, index) {
+                      final item = recommendations[index];
+                      return ListTile(
+                        title: Text(item['title'].toString()),
+                        subtitle: Text((item['tags'] as List).join(', ')),
+                        trailing: Text('${item['score']}'),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Đóng'))
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Không tải được gợi ý: $error')));
+      }
+    }
+  }
 
   Future<void> _deleteDocument(Document document) async {
     final shouldDelete = await showDialog<bool>(
@@ -83,6 +152,9 @@ class _DocumentListPageState extends State<DocumentListPage> {
         Uri.parse(url),
         mode: LaunchMode.externalApplication,
       );
+      if (opened) {
+        await widget.repository.recordInteraction(document.id, 'view');
+      }
       if (!opened && mounted) {
         throw StateError('Không thể mở liên kết tài liệu.');
       }
@@ -150,12 +222,18 @@ class _DocumentListPageState extends State<DocumentListPage> {
       ),
     );
     if (shouldSignOut == true && widget.authService != null) {
+      if (_fcmToken != null) {
+        try {
+          await widget.repository.unregisterFcmToken(_fcmToken!);
+        } catch (_) {}
+      }
       await widget.authService!.signOut();
     }
   }
 
   @override
   void dispose() {
+    _tokenSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -165,29 +243,33 @@ class _DocumentListPageState extends State<DocumentListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tài liệu học tập'),
-        actions: widget.authService == null
-            ? null
-            : [
-                if (widget.user?.email != null)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 210),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          widget.user!.email!,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
+        actions: [
+          IconButton(
+              tooltip: 'G?i ? t?i li?u',
+              icon: const Icon(Icons.auto_awesome),
+              onPressed: _showRecommendations),
+          if (widget.authService != null) ...[
+            if (widget.user?.email != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 210),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      widget.user!.email!,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
                     ),
                   ),
-                IconButton(
-                  tooltip: 'Đăng xuất',
-                  icon: const Icon(Icons.logout),
-                  onPressed: _confirmSignOut,
                 ),
-              ],
+              ),
+            IconButton(
+              tooltip: 'Đăng xuất',
+              icon: const Icon(Icons.logout),
+              onPressed: _confirmSignOut,
+            ),
+          ],
+        ],
       ),
       body: Column(
         children: [

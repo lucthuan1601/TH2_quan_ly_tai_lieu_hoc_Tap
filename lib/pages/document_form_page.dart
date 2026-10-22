@@ -33,6 +33,8 @@ class DocumentFormPage extends StatefulWidget {
 class _DocumentFormPageState extends State<DocumentFormPage> {
   final _title = TextEditingController();
   final _description = TextEditingController();
+  final _tags = TextEditingController();
+  bool _tagsLoaded = false;
   final _formKey = GlobalKey<FormState>();
   DocumentType _type = DocumentType.lecture;
   String? _filePath;
@@ -49,11 +51,19 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
     super.initState();
     final document = widget.document;
     if (document != null) {
+      widget.repository.tagsForDocument(document.id).then((tags) {
+        if (mounted) {
+          _tags.text = tags.join(', ');
+          _tagsLoaded = true;
+        }
+      }).catchError((Object _) {});
       _title.text = document.title;
       _description.text = document.description ?? '';
       _type = DocumentTypeCodec.fromValue(document.type);
       _filePath = document.filePath;
       _fileName = document.filePath?.split(RegExp(r'[/\\]')).last;
+    } else {
+      _tagsLoaded = true;
     }
   }
 
@@ -61,6 +71,7 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
   void dispose() {
     _title.dispose();
     _description.dispose();
+    _tags.dispose();
     super.dispose();
   }
 
@@ -98,6 +109,13 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
         fileName: _fileName,
         mimeType: _contentType,
         sizeBytes: _fileBytes?.length,
+        tags: !_tagsLoaded
+            ? null
+            : _tags.text
+                .split(',')
+                .map((tag) => tag.trim())
+                .where((tag) => tag.isNotEmpty)
+                .toList(),
       );
       if (mounted) Navigator.pop(context);
     } catch (error) {
@@ -199,6 +217,13 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                 prefixIcon: Icon(Icons.notes),
                 alignLabelWithHint: true,
               ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _tags,
+              decoration: const InputDecoration(
+                  labelText: 'Thẻ (cách nhau bằng dấu phẩy)',
+                  prefixIcon: Icon(Icons.tag)),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField(

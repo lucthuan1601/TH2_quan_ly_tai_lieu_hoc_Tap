@@ -20,6 +20,7 @@ dependencies:
   googleapis: ^11.4.0
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
+  firebase_messaging: ^16.0.0
   firebase_storage: ^13.6.0
   google_sign_in: ^7.2.0
 
