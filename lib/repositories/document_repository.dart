@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database/database.dart';
+import '../models/borrow_request.dart';
 import '../models/document_struct.dart';
 
 class DocumentRepository {
@@ -337,5 +338,55 @@ class DocumentRepository {
       'email': email.trim().toLowerCase(),
       'permission': permission,
     });
+  }
+
+  // ===== Mục 4: chia sẻ và mượn tài liệu =====
+
+  Future<List<SharedAccess>> listShares(String documentId) async {
+    final rows = await _invoke('/share/$documentId') as List<dynamic>;
+    return rows
+        .map((row) => SharedAccess.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> revokeShare({
+    required String documentId,
+    required String userId,
+  }) async {
+    await _invoke('/share/$documentId/$userId', method: HttpMethod.delete);
+  }
+
+  Future<List<BorrowableDocument>> listBorrowable() async {
+    final rows = await _invoke('/borrowable') as List<dynamic>;
+    return rows
+        .map((row) =>
+            BorrowableDocument.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> requestBorrow({
+    required String documentId,
+    required DateTime until,
+    String? message,
+  }) async {
+    await _invoke('/borrow', method: HttpMethod.post, body: {
+      'document_id': documentId,
+      'borrow_until': until.toUtc().toIso8601String(),
+      'message': message?.trim().isEmpty ?? true ? null : message!.trim(),
+    });
+  }
+
+  Future<List<BorrowRequest>> listBorrowRequests({required bool incoming}) async {
+    final rows = await _invoke(
+      '/borrow?role=${incoming ? 'incoming' : 'outgoing'}',
+    ) as List<dynamic>;
+    return rows
+        .map((row) => BorrowRequest.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  /// [action] là một trong: approve, reject, return.
+  Future<void> decideBorrow(String requestId, String action) async {
+    await _invoke('/borrow/$requestId/$action', method: HttpMethod.post);
   }
 }

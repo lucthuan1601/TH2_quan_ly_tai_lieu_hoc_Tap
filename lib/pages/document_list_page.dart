@@ -4,10 +4,12 @@ import 'package:url_launcher/url_launcher.dart';
 import '../database/database.dart';
 import '../models/document_struct.dart';
 import '../repositories/document_repository.dart';
+import 'borrow_page.dart';
+import 'document_form_page.dart';
+import 'share_manager_dialog.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../widgets/document_map_widget.dart';
-import 'document_form_page.dart';
 
 class DocumentListPage extends StatefulWidget {
   const DocumentListPage({
@@ -532,19 +534,19 @@ class _DocumentListPageState extends State<DocumentListPage> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                DocumentTypeCodec.fromValue(document.type).label,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF00695C),
-                                  fontWeight: FontWeight.w600,
+                                  DocumentTypeCodec.fromValue(document.type).label,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF00695C),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (document.filePath != null) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.attachment, size: 14, color: Colors.black54),
-                              const Text('Có tệp', style: TextStyle(fontSize: 11, color: Colors.black54)),
-                            ],
+                              if (document.filePath != null) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.attachment, size: 14, color: Colors.black54),
+                                const Text('Có tệp', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                              ],
                           ],
                         ),
                       ],
@@ -617,6 +619,17 @@ class _DocumentListPageState extends State<DocumentListPage> {
                     icon: const Icon(Icons.delete_outline, size: 20),
                     color: Colors.red[700],
                     onPressed: _isBusy ? null : () => _deleteDocument(document),
+                  ),
+                  IconButton(
+                    tooltip: 'Quản lý quyền truy cập',
+                    icon: const Icon(Icons.manage_accounts_outlined, size: 20),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => ShareManagerDialog(
+                        repository: widget.repository,
+                        documentId: document.id,
+                      ),
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Chia sẻ qua email',
@@ -884,6 +897,15 @@ class _DocumentListPageState extends State<DocumentListPage> {
   List<Widget>? _buildAppBarActions() {
     if (widget.authService == null) return null;
     return [
+      IconButton(
+        tooltip: 'Mượn tài liệu',
+        icon: const Icon(Icons.swap_horiz),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => BorrowPage(repository: widget.repository),
+          ),
+        ),
+      ),
       if (widget.user?.email != null)
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 160),
