@@ -102,7 +102,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
     }
   }
 
-  // Mobile navigation tab: 0 = List, 1 = Map
+  // Mobile navigation tab: 0 = List, 1 = Map, 2 = Borrow
   int _mobileTabIndex = 0;
 
   // Selected document for Web/Tablet split-view
@@ -110,6 +110,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
 
   @override
   void dispose() {
+    _tokenSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -247,13 +248,6 @@ class _DocumentListPageState extends State<DocumentListPage> {
     }
   }
 
-<<<<<<< HEAD
-  @override
-  void dispose() {
-    _tokenSubscription?.cancel();
-    _searchController.dispose();
-    super.dispose();
-=======
   void _navigateToForm([Document? document]) {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -266,7 +260,6 @@ class _DocumentListPageState extends State<DocumentListPage> {
         ),
       ),
     );
->>>>>>> origin/main
   }
 
   @override
@@ -286,41 +279,13 @@ class _DocumentListPageState extends State<DocumentListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tài liệu học tập'),
-<<<<<<< HEAD
-        actions: [
-          IconButton(
-              tooltip: 'G?i ? t?i li?u',
-              icon: const Icon(Icons.auto_awesome),
-              onPressed: _showRecommendations),
-          if (widget.authService != null) ...[
-            if (widget.user?.email != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 210),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      widget.user!.email!,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ),
-              ),
-            IconButton(
-              tooltip: 'Đăng xuất',
-              icon: const Icon(Icons.logout),
-              onPressed: _confirmSignOut,
-            ),
-          ],
-        ],
-=======
         actions: _buildAppBarActions(),
->>>>>>> origin/main
       ),
-      body: _mobileTabIndex == 0
-          ? _buildDocumentListSection(isWide: false)
-          : _buildFullMapView(),
+      body: switch (_mobileTabIndex) {
+        1 => _buildFullMapView(),
+        2 => BorrowPage(repository: widget.repository, embedded: true),
+        _ => _buildDocumentListSection(isWide: false),
+      },
       bottomNavigationBar: NavigationBar(
         selectedIndex: _mobileTabIndex,
         onDestinationSelected: (index) {
@@ -337,13 +302,20 @@ class _DocumentListPageState extends State<DocumentListPage> {
             selectedIcon: Icon(Icons.map),
             label: 'Bản đồ vị trí',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.swap_horiz_outlined),
+            selectedIcon: Icon(Icons.swap_horiz),
+            label: 'Mượn tài liệu',
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToForm(),
-        tooltip: 'Thêm tài liệu',
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: _mobileTabIndex == 0
+          ? FloatingActionButton(
+              onPressed: () => _navigateToForm(),
+              tooltip: 'Thêm tài liệu',
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
@@ -406,37 +378,46 @@ class _DocumentListPageState extends State<DocumentListPage> {
                 selectedIcon: Icon(Icons.map),
                 label: Text('Bản đồ'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.swap_horiz_outlined),
+                selectedIcon: Icon(Icons.swap_horiz),
+                label: Text('Mượn tài liệu'),
+              ),
             ],
           ),
           const VerticalDivider(thickness: 1, width: 1),
 
           // Nội dung chính
           Expanded(
-            child: _mobileTabIndex == 1
-                ? _buildFullMapView()
-                : Row(
-                    children: [
-                      // Cột trái: Danh sách + bộ lọc
-                      SizedBox(
-                        width: 440,
-                        child: _buildDocumentListSection(isWide: true),
-                      ),
-                      const VerticalDivider(thickness: 1, width: 1),
+            child: switch (_mobileTabIndex) {
+              1 => _buildFullMapView(),
+              2 => BorrowPage(repository: widget.repository, embedded: true),
+              _ => Row(
+                  children: [
+                    // Cột trái: Danh sách + bộ lọc
+                    SizedBox(
+                      width: 440,
+                      child: _buildDocumentListSection(isWide: true),
+                    ),
+                    const VerticalDivider(thickness: 1, width: 1),
 
-                      // Cột phải: Bảng chi tiết tài liệu hoặc bản đồ kết hợp
-                      Expanded(
-                        child: _buildDetailOrMapPane(),
-                      ),
-                    ],
-                  ),
+                    // Cột phải: Bảng chi tiết tài liệu hoặc bản đồ kết hợp
+                    Expanded(
+                      child: _buildDetailOrMapPane(),
+                    ),
+                  ],
+                ),
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _navigateToForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Thêm tài liệu mới'),
-      ),
+      floatingActionButton: _mobileTabIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => _navigateToForm(),
+              icon: const Icon(Icons.add),
+              label: const Text('Thêm tài liệu mới'),
+            )
+          : null,
     );
   }
 
@@ -1009,34 +990,31 @@ class _DocumentListPageState extends State<DocumentListPage> {
     );
   }
 
-  List<Widget>? _buildAppBarActions() {
-    if (widget.authService == null) return null;
+  List<Widget> _buildAppBarActions() {
     return [
       IconButton(
-        tooltip: 'Mượn tài liệu',
-        icon: const Icon(Icons.swap_horiz),
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => BorrowPage(repository: widget.repository),
-          ),
-        ),
+        tooltip: 'Gợi ý tài liệu',
+        icon: const Icon(Icons.auto_awesome),
+        onPressed: _showRecommendations,
       ),
-      if (widget.user?.email != null)
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 160),
-          child: Center(
-            child: Text(
-              widget.user!.email!,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12),
+      if (widget.authService != null) ...[
+        if (widget.user?.email != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Center(
+              child: Text(
+                widget.user!.email!,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
           ),
+        IconButton(
+          tooltip: 'Đăng xuất',
+          icon: const Icon(Icons.logout),
+          onPressed: _confirmSignOut,
         ),
-      IconButton(
-        tooltip: 'Đăng xuất',
-        icon: const Icon(Icons.logout),
-        onPressed: _confirmSignOut,
-      ),
+      ],
     ];
   }
 

@@ -173,13 +173,6 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
         fileName: _fileName,
         mimeType: _contentType,
         sizeBytes: _fileBytes?.length,
-        tags: !_tagsLoaded
-            ? null
-            : _tags.text
-                .split(',')
-                .map((tag) => tag.trim())
-                .where((tag) => tag.isNotEmpty)
-                .toList(),
       );
       if (mounted) Navigator.pop(context);
     } catch (error) {
@@ -511,66 +504,7 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                 ),
               ],
             ),
-<<<<<<< HEAD
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _description,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              autocorrect: true,
-              enableSuggestions: true,
-              minLines: 4,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                labelText: 'Mô tả',
-                hintText: 'Nhập mô tả bằng tiếng Việt',
-                prefixIcon: Icon(Icons.notes),
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _tags,
-              decoration: const InputDecoration(
-                  labelText: 'Thẻ (cách nhau bằng dấu phẩy)',
-                  prefixIcon: Icon(Icons.tag)),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField(
-              initialValue: _type,
-              decoration: const InputDecoration(
-                labelText: 'Loại tài liệu',
-                prefixIcon: Icon(Icons.category_outlined),
-              ),
-              items: DocumentType.values
-                  .map((type) =>
-                      DropdownMenuItem(value: type, child: Text(type.label)))
-                  .toList(),
-              onChanged: (value) => setState(() => _type = value!),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pickFile,
-              icon: const Icon(Icons.attach_file),
-              label: Text(_fileName == null ? 'Chọn tệp đính kèm' : _fileName!),
-            ),
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Text(
-                'Dung lượng tệp tối đa: 10 MB',
-                style: TextStyle(color: Colors.black54),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _save,
-              icon: const Icon(Icons.save_outlined),
-              label: Text(_isEditing ? 'Cập nhật tài liệu' : 'Lưu tài liệu'),
-            ),
-          ],
-=======
           ),
->>>>>>> origin/main
         ),
       ),
     );

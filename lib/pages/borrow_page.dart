@@ -5,12 +5,50 @@ import '../repositories/document_repository.dart';
 
 /// Mục 4: mượn tài liệu — gửi yêu cầu, phê duyệt/từ chối, trả tài liệu.
 class BorrowPage extends StatelessWidget {
-  const BorrowPage({super.key, required this.repository});
+  const BorrowPage({
+    super.key,
+    required this.repository,
+    this.embedded = false,
+  });
 
   final DocumentRepository repository;
 
+  /// true khi hiển thị trong tab điều hướng thay vì mở thành trang riêng.
+  final bool embedded;
+
+  static const _tabs = [
+    Tab(text: 'Có thể mượn'),
+    Tab(text: 'Đã gửi'),
+    Tab(text: 'Nhận được'),
+  ];
+
+  List<Widget> get _views => [
+        _BorrowableTab(repository: repository),
+        _RequestsTab(repository: repository, incoming: false),
+        _RequestsTab(repository: repository, incoming: true),
+      ];
+
   @override
   Widget build(BuildContext context) {
+    if (embedded) {
+      return DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            const Material(
+              color: Colors.white,
+              child: TabBar(
+                labelColor: Color(0xFF00695C),
+                unselectedLabelColor: Colors.black54,
+                indicatorColor: Color(0xFF00897B),
+                tabs: _tabs,
+              ),
+            ),
+            Expanded(child: TabBarView(children: _views)),
+          ],
+        ),
+      );
+    }
     return DefaultTabController(
       length: 3,
       child: Scaffold(
@@ -20,20 +58,10 @@ class BorrowPage extends StatelessWidget {
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
-            tabs: [
-              Tab(text: 'Có thể mượn'),
-              Tab(text: 'Đã gửi'),
-              Tab(text: 'Nhận được'),
-            ],
+            tabs: _tabs,
           ),
         ),
-        body: TabBarView(
-          children: [
-            _BorrowableTab(repository: repository),
-            _RequestsTab(repository: repository, incoming: false),
-            _RequestsTab(repository: repository, incoming: true),
-          ],
-        ),
+        body: TabBarView(children: _views),
       ),
     );
   }
@@ -68,7 +96,9 @@ class _AsyncListState<T> extends State<_AsyncList<T>> {
   late Future<List<T>> _future = widget.load();
 
   Future<void> _reload() async {
-    setState(() => _future = widget.load());
+    setState(() {
+      _future = widget.load();
+    });
     await _future.catchError((_) => <T>[]);
   }
 
@@ -145,20 +175,40 @@ class _BorrowableTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _AsyncList<BorrowableDocument>(
-      load: repository.listBorrowable,
-      emptyText: 'Chưa có tài liệu nào để mượn',
-      itemBuilder: (context, document, reload) => ListTile(
-        leading: const Icon(Icons.description_outlined),
-        title: Text(document.title),
-        subtitle: Text('Chủ sở hữu: ${document.ownerEmail ?? 'không rõ'}'),
-        trailing: document.pending
-            ? const Chip(label: Text('Đã gửi yêu cầu'))
-            : FilledButton(
-                onPressed: () => _request(context, document, reload),
-                child: const Text('Mượn'),
-              ),
-      ),
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0F2F1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Text(
+            'Chọn tài liệu của người khác và bấm "Yêu cầu mượn". '
+            'Chủ sở hữu sẽ duyệt yêu cầu trong tab "Nhận được".',
+            style: TextStyle(fontSize: 12.5, color: Color(0xFF00695C)),
+          ),
+        ),
+        Expanded(
+          child: _AsyncList<BorrowableDocument>(
+            load: repository.listBorrowable,
+            emptyText: 'Chưa có tài liệu của người khác để mượn',
+            itemBuilder: (context, document, reload) => ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: Text(document.title),
+              subtitle: Text('Chủ sở hữu: ${document.ownerEmail ?? 'không rõ'}'),
+              trailing: document.pending
+                  ? const Chip(label: Text('Đã gửi yêu cầu'))
+                  : FilledButton(
+                      onPressed: () => _request(context, document, reload),
+                      child: const Text('Yêu cầu mượn'),
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

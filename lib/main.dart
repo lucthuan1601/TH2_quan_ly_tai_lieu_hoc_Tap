@@ -18,7 +18,8 @@ Future<void> main() async {
   await Supabase.initialize(
     url: 'https://lxskxncjdshkmkscyztc.supabase.co',
     publishableKey: const String.fromEnvironment(
-      'sb_publishable_DUpPisrHUdLtNSxn9BY6Fw_N2a8a56J',
+      'SUPABASE_PUBLISHABLE_KEY',
+      defaultValue: 'sb_publishable_DUpPisrHUdLtNSxn9BY6Fw_N2a8a56J',
     ),
   );
   final authService = AuthService();

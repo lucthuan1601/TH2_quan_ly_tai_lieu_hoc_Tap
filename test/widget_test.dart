@@ -38,6 +38,7 @@ void main() {
       // Check BottomNavigationBar items
       expect(find.text('Tài liệu'), findsOneWidget);
       expect(find.text('Bản đồ vị trí'), findsOneWidget);
+      expect(find.text('Mượn tài liệu'), findsOneWidget);
 
       // Allow Drift's query stream to finish
       await tester.pumpWidget(const SizedBox.shrink());

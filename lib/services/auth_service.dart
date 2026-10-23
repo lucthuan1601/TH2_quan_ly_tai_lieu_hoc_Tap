@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
@@ -11,7 +12,11 @@ class AuthService {
   final firebase_auth.FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
 
-  Future<void> initialize() => _googleSignIn.initialize();
+  // google_sign_in cannot sign in on web (the SDK only allows its own button),
+  // so web uses Firebase's popup flow instead.
+  Future<void> initialize() async {
+    if (!kIsWeb) await _googleSignIn.initialize();
+  }
 
   Stream<AuthUser?> get userChanges => _auth.authStateChanges().map(
         (user) => user == null
@@ -21,12 +26,22 @@ class AuthService {
       );
 
   Future<AuthUser> signInWithGoogle() async {
+    if (kIsWeb) {
+      final result =
+          await _auth.signInWithPopup(firebase_auth.GoogleAuthProvider());
+      return _toAuthUser(result);
+    }
     final account = await _googleSignIn.authenticate();
-    final authentication = account.authentication;
-    final credential = firebase_auth.GoogleAuthProvider.credential(
-      idToken: authentication.idToken,
-    );
-    final result = await _auth.signInWithCredential(credential);
+    final idToken = account.authentication.idToken;
+    if (idToken == null || idToken.isEmpty) {
+      throw StateError('Google không trả về ID token để đăng nhập Firebase.');
+    }
+    return _toAuthUser(await _auth.signInWithCredential(
+      firebase_auth.GoogleAuthProvider.credential(idToken: idToken),
+    ));
+  }
+
+  AuthUser _toAuthUser(firebase_auth.UserCredential result) {
     final user = result.user;
     if (user == null) {
       throw StateError('Firebase không trả về thông tin tài khoản.');
@@ -39,7 +54,8 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await Future.wait([_auth.signOut(), _googleSignIn.signOut()]);
+    await _auth.signOut();
+    if (!kIsWeb) await _googleSignIn.signOut();
   }
 }
 

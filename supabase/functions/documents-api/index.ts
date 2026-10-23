@@ -92,7 +92,6 @@ function storageSignedUrl(path: string) {
     });
 }
 
-<<<<<<< HEAD
 function normalizeTags(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter((tag): tag is string => typeof tag === "string")
@@ -125,7 +124,9 @@ async function sendFcm(userId: string, title: string, documentId: string) {
     });
     if (response.status === 404) await supabase.from("user_fcm_tokens").delete().eq("token", token);
     else if (!response.ok) console.error("FCM send failed", response.status);
-=======
+  }
+}
+
 async function revokeBorrowPermission(req: { document_id: string; requester_id: string }) {
   // Chỉ xóa quyền do mượn tạo ra, không đụng vào quyền chia sẻ thường.
   const { error } = await supabase.from("document_permissions").delete()
@@ -145,7 +146,6 @@ async function expireBorrows() {
     await revokeBorrowPermission(req);
     await supabase.from("borrow_requests")
       .update({ status: "expired", updated_at: now }).eq("id", req.id);
->>>>>>> origin/main
   }
 }
 

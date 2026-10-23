@@ -21,18 +21,28 @@ class ShareManagerDialog extends StatefulWidget {
 class _ShareManagerDialogState extends State<ShareManagerDialog> {
   late Future<List<SharedAccess>> _future =
       widget.repository.listShares(widget.documentId);
+  bool _revoking = false;
 
   Future<void> _revoke(SharedAccess access) async {
+    if (_revoking) return;
+    setState(() => _revoking = true);
     try {
       await widget.repository
           .revokeShare(documentId: widget.documentId, userId: access.userId);
       if (!mounted) return;
-      setState(() => _future = widget.repository.listShares(widget.documentId));
+      setState(() {
+        _future = widget.repository.listShares(widget.documentId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã thu hồi quyền truy cập.')),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Không thể thu hồi quyền: $error')),
       );
+    } finally {
+      if (mounted) setState(() => _revoking = false);
     }
   }
 
@@ -79,7 +89,7 @@ class _ShareManagerDialogState extends State<ShareManagerDialog> {
                       tooltip: 'Thu hồi quyền',
                       icon: const Icon(Icons.person_remove_outlined),
                       color: Colors.red,
-                      onPressed: () => _revoke(access),
+                      onPressed: _revoking ? null : () => _revoke(access),
                     ),
                   ),
               ],
